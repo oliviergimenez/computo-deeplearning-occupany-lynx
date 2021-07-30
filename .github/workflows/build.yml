@@ -10,7 +10,7 @@ on:
       - master
 
 env: # Change this if needed
-  Rmarkdown-file: template-computo-Rmarkdown.Rmd
+  Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
 
 jobs:
   build_computorticle:
