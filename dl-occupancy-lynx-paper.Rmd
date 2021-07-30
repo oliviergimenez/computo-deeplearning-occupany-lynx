@@ -77,6 +77,10 @@ Blabla.
     iii) ici pas d'images vides, mais MegaDetector sinon. Extra layer of training. 
     iv) Simulations for investifating further bias with false positives/negatives. Citer deux ou trois papiers que j'ai vus. 
     v) Ajouter des covariables. 
+    vi) more interdisciplinary teams, so that mutual cross-fertilization. Algo more adapted to address ecological questions, and ecologists more able to formulate questions that would be of interest for computer scientists (voir mon thread suite aux journées du GDR)
+    vii) cite imaginecology somewhere
+    viii) citer papier(s) Vincent [@miele_revisiting_2021], et Jose sur Methods in Conservation dans Frontiers [@lahoz-monfort_comprehensive_2021].
+    
 
 ## Bibliographic references
 
