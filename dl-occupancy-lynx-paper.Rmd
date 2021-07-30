@@ -72,12 +72,17 @@ Blabla.
 + Main lessons.
 
 + To be extended. 
+    i) More pix, various environments, 
+    ii) at once à la Yolo, ou detect and identify. 
+    iii) ici pas d'images vides, mais MegaDetector sinon. Extra layer of training. 
+    iv) Simulations for investifating further bias with false positives/negatives. Citer deux ou trois papiers que j'ai vus. 
+    v) Ajouter des covariables. 
 
 ## Bibliographic references
 
 ## Acknowledgments
 
-ANR. 
+ANR. Folks who have labeled pix. 
 
 # Session information
 
