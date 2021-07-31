@@ -51,21 +51,39 @@ Blabla.
 
 + Main objective
 
+Les collègues de l'OFB et des fédérations de chasse collectent des données dans l'habitat naturel des espèces qui nous intéressent, grâce à des pièges photos laissés à des endroits stratégiques. Il s'agit ici du lynx et de ses proies le chevreuil et le chamois. La méthode est non-invasive, autrement dit on n'a pas besoin de capturer physiquement les animaux. La difficulté est que l'on se retrouve avec des grandes quantités de photos auxquelles il faut associer une étiquette espèce. 
+
 # Methods 
 
 ## Data curation
 
 ## Species identification
 
+C'est là qu'entre en jeu le deep learning, de plus en plus utilisé en écologie, voir par exemple @christin2019. L'idée est de nourrir les algorithmes avec des photos en entrée pour en sortie récupérer l'espèce qui se trouve sur la photo. Nous avons utilisé [la librairie fast-ai](https://docs.fast.ai/) qui repose sur le language Python et sa librairie Pytorch. Un avantage de cette librairie est qu'elle vient avec [un package `R` `fastai`](https://eagerai.github.io/fastai/index.html) qui propose plusieurs fonctions pour l'utiliser. 
+
 ### Training with Jura
+
+Quels sont les résultats obtenus? Nous avons d'abord fait du transfer learning sur un site d'étude dans le Jura où nous avions des photos déjà étiquetées. Nous avons utilisé un modèle resnet50 déjà pré-entrainé. Nous arrivons à classifier le lynx, et ses proies, le chamoix et le chevreuil, avec un degré de certitude satisfaisant. 
 
 ### Validation with Ain
 
+Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des photos prises avec des pièges installés sur un autre site, dans l'Ain. Ces photos ont aussi été étiquetées à la main, on connait donc la vérité. 
+
 ## Spatial co-occurrence
+
+Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
+
 
 # Results
 
+On obtient les probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies (Figure 1). Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.
+
+![Probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies. En rouge, avec les photos étiquetées à la main. En gris-bleu, avec les photos étiquetées automatiquement.](figs/conditional_occ.jpg)
+
+
 # Discussion
+
+En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire sur un autre site est délicate. Il est facile de se perdre dans les dédales du deep learning, mais il faut garder le cap de la question écologique, et on peut accepter des performances moyennes des algorithmes si le biais engendré sur les indicateurs écologiques est faible. Malgré tout, on peut faire mieux, et nous développons actuellement des modèles de distribution d'espèce qui prendrait à la fois en compte les interactions et les faux positifs et faux négatifs. Pour aller plus loin avec le deep learning et l'analyse d'images, nous renvoyons vers @miele2021. 
 
 + Summarise what we did. 
 
