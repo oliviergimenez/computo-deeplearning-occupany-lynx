@@ -15,30 +15,16 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(tidy = FALSE, fig.width = 8, fig.height = 8, echo = FALSE)
+knitr::opts_chunk$set(tidy = FALSE, 
+                      fig.width = 8, 
+                      fig.height = 8, 
+                      echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE)
 options(htmltools.dir.version = FALSE)
 ```
 
 <button type="button" class="btn" title="Print to PDF" onClick="window.print()">Export to PDF</button>
-
-# Install fastai
-
-```{r}
-library(tidyverse)
-library(fastai)
-
-# transformations
-tfms = aug_transforms(do_flip = FALSE)
-path = 'mnist_sample'
-bs = 20
-
-#load into memory
-data = ImageDataLoaders_from_folder(path, batch_tfms = tfms, size = 26, bs = bs)
-
-# Train
-learn = cnn_learner(data, resnet18(), metrics = accuracy)
-learn %>% fit(2)
-```
 
 
 # Abstract
