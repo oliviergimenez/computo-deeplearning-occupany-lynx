@@ -1,6 +1,6 @@
 ---
 title: "Deep learning, animal species identification, camera traps, spatial predator-prey co‐occurrence"
-author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Jean-Baptiste Fanjul, Christophe Duchamp (who else?)"
+author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Lucile Marescot, Jean-Baptiste Fanjul, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output:
@@ -63,7 +63,9 @@ Les collègues de l'OFB et des fédérations de chasse collectent des données d
 
 ## Data curation
 
-## Species identification
+## Deep learning for species identification
+
+Expliquer principe général et les étapes ci-dessous. Below with CPU for reproducibility, subsample of picture datasets, only a few for automatic tagging. But results are proovided with GPU, more epochs and all pictures. Fully-trained model, all pictures, provided via Zenodo. 
 
 C'est là qu'entre en jeu le deep learning, de plus en plus utilisé en écologie, voir par exemple @christin2019. L'idée est de nourrir les algorithmes avec des photos en entrée pour en sortie récupérer l'espèce qui se trouve sur la photo. Nous avons utilisé [la librairie fast-ai](https://docs.fast.ai/) qui repose sur le language Python et sa librairie Pytorch. Un avantage de cette librairie est qu'elle vient avec [un package `R` `fastai`](https://eagerai.github.io/fastai/index.html) qui propose plusieurs fonctions pour l'utiliser. 
 
@@ -74,6 +76,8 @@ Quels sont les résultats obtenus? Nous avons d'abord fait du transfer learning 
 ### Validation with Ain
 
 Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des photos prises avec des pièges installés sur un autre site, dans l'Ain. Ces photos ont aussi été étiquetées à la main, on connait donc la vérité. 
+
+### Reproductible toy exemple with CPU
 
 ## Spatial co-occurrence
 
@@ -110,7 +114,7 @@ En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire su
 
 ## Acknowledgments
 
-ANR. Folks who have labeled pix. 
+ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. 
 
 # Session information
 
