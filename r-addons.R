@@ -20,4 +20,6 @@ local({
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
 ## remotes::install_github("user/package")
+devtools::install_github('eagerai/fastai')
+fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
 ## ____________________________________________________
