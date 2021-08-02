@@ -20,6 +20,7 @@ local({
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
 ## remotes::install_github("user/package")
+devtools::install_github("paleolimbot/exifr")
 reticulate::install_miniconda()
 reticulate::conda_create('r-reticulate')
 devtools::install_github('eagerai/fastai')
