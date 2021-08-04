@@ -40,7 +40,7 @@ Computer vision is a field of artificial intelligence in which a machine is taug
 
 In ecology in particular, there has been a growing interest in deep learning for automatizing repetitive analyses on large amount of images, such as identifying plant and animal species, distinguish individuals of the same of different species, count individuals or detect relevant features [@christin_applications_2019; @lamba_deep_2019; @weinstein_computer_2018]. By saving hours of manual data analyses and tapping into massive amounts of data that keep accumulating with technological advances, deep learning has the potential to become an essential tool for ecologists.
 
-Despite the promising future of computer vision and deep learning, there are challenging issues toward the wide adoption by the community of ecologists [e.g. @wearn_responsible_2019]. First, there is a programming barrier as most, if not all, algorithms are written in the `Python` language while ecologists are familiar with `R` for a majority of them [@lai_evaluating_2019]. If ecologists are to use computer vision in routine, there is a need for bridges between these two languages (through, e.g., the `reticulate` package @reticulate_ref or the `shiny` package @tabak_improving_2020). Second, most recent applications of computer vision via deep learning in ecology have focused on computational aspects and simple tasks without addressing the underlying ecological questions [e.g., @sutherland_identification_2013], or carrying out the statistical data analysis [e.g., @gimenez_statistical_2014]. Although perfectly understandable given the challenges at hand, we argue that a better integration of the *why* (ecological questions), the *what* (data) and the *how* (statistics) would be beneficial to computer vision for ecology [see also @weinstein_computer_2018]. **develop here, speak about tradeoffs, and relevance**
+Despite the promising future of computer vision and deep learning, there are challenging issues toward the wide adoption by the community of ecologists [e.g. @wearn_responsible_2019]. First, there is a programming barrier as most, if not all, algorithms are written in the `Python` language while ecologists are familiar with `R` for a majority of them [@lai_evaluating_2019]. If ecologists are to use computer vision in routine, there is a need for bridges between these two languages (through, e.g., the `reticulate` package @reticulate_ref or the `shiny` package @tabak_improving_2020). Second, most recent applications of computer vision via deep learning in ecology **short WoS review and Table?** have focused on computational aspects and simple tasks without addressing the underlying ecological questions [e.g., @sutherland_identification_2013], or carrying out the statistical data analysis [e.g., @gimenez_statistical_2014]. Although perfectly understandable given the challenges at hand, we argue that a better integration of the *why* (ecological questions), the *what* (data) and the *how* (statistics) would be beneficial to computer vision for ecology [see also @weinstein_computer_2018]. **develop here, speak about tradeoffs, and relevance**
 
 Here, we showcase a full why-what-how workflow in `R` using a case study on elucidating the structure of an ecological community (a set of co-occurring species), namely that of the Eurasian lynx (*Lynx lynx*) and its main preys. First, we introduce the case study and motivate the need for deep learning. Second we illustrate deep learning for the identification of animal species in large amounts of images, including model training and validation with a dataset of labelled images, and prediction with a new dataset of unlabelled images. Last, we proceed with the quantification of spatial co-occurrence using statistical models. **Main conclusion no need to go too far in the DL to get reasonable answer to ecological question** We hope that our reproducible workflow will be useful to applied statisticians and ecologists. 
 
@@ -92,195 +92,6 @@ Quels sont les résultats obtenus? Nous avons d'abord fait du transfer learning 
 
 Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des photos prises avec des pièges installés sur un autre site, dans l'Ain. Ces photos ont aussi été étiquetées à la main, on connait donc la vérité. 
 
-## Reproducible example with CPU
-
-In this section, we go through a reproducible example of the entire deep learning workflow, from data preparation, training of a model and its validation, to the automatic labeling of pictures. We used a subsample of 467 pictures from the original dataset in the Jura county, plus 14 pictures from the original dataset in the Ain county, to allow the training of our model with CPU on a personal computer. We provide all pictures and the models fully trained with GPU from Zenodo.
-
-### Training and validation datasets
-
-We first split the dataset of pictures in two datasets, a dataset for training, and the other one for validation. 
-
-We use the `exifr` package to extract metadata from pictures, get a list of pictures names and extract the species from these. 
-```{r }
-library(exifr)
-pix_folder <- 'pix/pixJura/'
-file_list <- list.files(path = pix_folder, 
-                        recursive = TRUE, 
-                        pattern = "*.JPG", 
-                        full.names = TRUE)
-labels <- 
-  read_exif(file_list) %>%
-  as_tibble() %>%
-  unnest(Keywords, keep_empty = TRUE) %>% # keep_empty = TRUE keeps pix with no labels (empty pix)
-  group_by(SourceFile) %>%
-  slice_head() %>% # when several labels in a pix, keep first only
-  ungroup() %>%
-  mutate(Keywords = as_factor(Keywords)) %>%
-  mutate(Keywords = fct_explicit_na(Keywords, "wo_tag")) %>% # when pix has no tag
-  select(SourceFile, FileName, Keywords) %>% 
-  mutate(Keywords = fct_recode(Keywords, 
-                               # "chat" = "chat domestique", 
-                               "chat" = "chat forestier",
-                               "lievre" = "lièvre",
-                               "vehicule" = "véhicule",
-                               # "ecureuil" = "écureuil",
-                               # "laporide" = "laporidés",
-                               # "ongules" = "ongulés sauvages",
-                               # "sciuridae" = "Sciuridae",
-                               "ni" = "Non identifié")) %>% 
-  filter(!(Keywords %in% c("ni", "wo_tag")))
-```
-```{r echo = TRUE}
-labels %>% 
-  count(Keywords, sort = TRUE) %>% 
-#  print(n = Inf) %>%
-  knitr::kable(caption = "Species considered, and number of pictures with these species in them.")
-```
-
-Then we pick 80$\%$ of the pictures for training in each category, the rest being used for validation.
-```{r echo = TRUE}
-# training dataset
-pix_train <- labels %>% 
-  select(SourceFile, FileName, Keywords) %>%
-  group_by(Keywords) %>%
-  filter(between(row_number(), 1, floor(n()*80/100))) # 80% per category
-# validation dataset
-pix_valid <- labels %>% 
-  group_by(Keywords) %>%
-  filter(between(row_number(), floor(n()*80/100) + 1, n()))
-```
-
-Eventually, we store these pictures in two distinct directories named `train` and `valid`. 
-```{r}
-# create dir train/ and copy pix there, organised by categories
-dir.create('pix/train') # create training directory
-for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels 
-for (i in 1:nrow(pix_train)){
-	file.copy(as.character(pix_train$SourceFile[i]), 
-	          paste0('pix/train/', as.character(pix_train$Keywords[i]))) # copy pix in corresp dir
-}
-# create dir valid/ and copy pix there, organised by categories.
-dir.create('pix/valid') # create validation dir
-for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/valid/',i)) # create dir for labels 
-for (i in 1:nrow(pix_valid)){
-	file.copy(as.character(pix_valid$SourceFile[i]), 
-	          paste0('pix/valid/', as.character(pix_valid$Keywords[i]))) # copy pix in corresp dir
-}
-# delete pictures in valid/ directory for which we did not train the model
-to_be_deleted <- setdiff(levels(fct_drop(pix_valid$Keywords)), levels(fct_drop(pix_train$Keywords)))
-if (!is_empty(to_be_deleted)) {
-  for (i in 1:length(to_be_deleted)){
-    unlink(paste0('pix/valid/', to_be_deleted[i]))
-  }
-}
-```
-
-What is the sample size of these two datasets?
-```{r}
-bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
-  group_by(dataset) %>%
-  count(Keywords) %>% 
-  rename(category = Keywords) %>%
-  knitr::kable(caption = "Sample size (n) for the training and validation datasets.")
-```
-
-### Transfer learning
-
-We proceed with transfer learning using the pictures from the Jura county (or a subsample more exactly). 
-
-We first load pictures, apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform). 
-```{r}
-dls <- ImageDataLoaders_from_folder(
-  path = "pix/",
-  train = "train",
-  valid = "valid",
-  item_tfms = Resize(size = 460), 
-  bs = 10,
-  batch_tfms = list(aug_transforms(size = 224, 
-                                   min_scale = 0.75), # transformation
-                    Normalize_from_stats( imagenet_stats() )),
-  num_workers = 0,
-  ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
-```
-
-Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented below.
-```{r}
-learn <- cnn_learner(dls = dls, 
-                     arch = resnet18(), 
-                     metrics = list(accuracy, error_rate))
-```
-
-Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented below. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz Inter Core i9 8 cores processor and 64Go emory with CPU, and less than half an hour with GPU. On this reduced dataset, it took a bit more than a minute per epoch with CPU. Note that we save the model after each epoch for later use.
-```{r}
-one_cycle <- learn %>% 
-  fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE, 
-                                           fname = 'model'))
-one_cycle
-```
-
-We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.  
-```{r}
-# see model saved at each epoch
-# list.files('pix/pix/models/')
-learn$load("model_1")
-interp <- ClassificationInterpretation_from_learner(learn)
-interp$print_classification_report()
-```
-
-Four metrics are given. 
-
-Precision is the ratio tp / (tp + fp) where tp is the number of true positives and fp the number of false positives. It quantifies the ability of the classifier not to label as positive a sample that is negative. The question that this metric answers is of all pix that labeled as positive, how many actually were positive?
-
-The recall is the ratio tp / (tp + fn) where tp is the number of true positives and fn the number of false negatives. The recall is intuitively the ability of the classifier to find all the positive samples. The question recall answers is: of all the pix that were positive, how many did we label? 
-
-The f1-score can be interpreted as a weighted average of the precision and recall, it reaches its best value at 1 and worst score at 0.
-
-The f1-score weights recall more than precision by a factor of 1, meaning that recall and precision are equally important. f1-score is 2 * (recall * precision) / (recall + precision)
-
-The support is the number of occurrences of each class in y_true (ground truth or correct target values).
-
-macro avg: Calculate metrics for each label, and find their unweighted mean. This does not take label imbalance into account.
-
-weighted avg: Calculate metrics for each label, and find their average weighted by support (the number of true instances for each label). This alters ‘macro’ to account for label imbalance.
-
-Accuracy is the most intuitive performance measure and it is simply a ratio of correctly predicted observation to the total observations, it is (tp + tn)/(tp + tn + fp + fn) 
-
-We may extract the categories that get the most confused.
-```{r}
-interp %>% most_confused()
-```
-
-### Prediction
-
-In this section, we show how to use our freshly trained model to label pictures that were taken in another study site in the Ain county. 
-
-First, we get the path to the pictures.
-```{r}
-fls <- list.files(path = "pix/pixAin",
-                  full.names = TRUE,
-                  recursive = TRUE)
-```
-
-Then carry out the prediction, and compare to the truth.
-```{r}
-predicted <- character(3)
-categories <- interp$vocab %>%
-  str_replace_all("[[:punct:]]", " ") %>%
-  str_trim() %>%
-  str_split("   ") %>%
-  unlist()
-for (i in 1:length(fls)){
-  result <- learn %>% predict(fls[i]) # make prediction
-  result[[3]] %>% 
-    stringr::str_extract("\\d+") %>%
-    as.integer() -> index # extract relevant info
-  predicted[i] <- categories[index + 1] # match it with categories
-}
-data.frame(truth = c("lynx", "roe deer", "wild boar"),
-           prediction = predicted) %>%
-  knitr::kable(caption = "Comparison of the predictions vs. ground truth.")
-```
-
 # Spatial co-occurrence
 
 Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
@@ -307,6 +118,195 @@ En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire su
     vii) cite imaginecology somewhere
     viii) citer papier(s) Vincent [@miele_revisiting_2021], et Jose sur Methods in Conservation dans Frontiers [@lahoz-monfort_comprehensive_2021].
     ix) We argue that maybe not worth spending valuable time tuning algo to increase perf by one or two percent, if ecological indicators not too much affected. Entirely in R with which ecologists are familiar, and entirely reproducible. 
+
+<!-- # Appendix: Reproducible example of species identification on camera trap images with CPU -->
+
+<!-- In this section, we go through a reproducible example of the entire deep learning workflow, from data preparation, training of a model and its validation, to the automatic labeling of pictures. We used a subsample of 467 pictures from the original dataset in the Jura county, plus 14 pictures from the original dataset in the Ain county, to allow the training of our model with CPU on a personal computer. We provide all pictures and the models fully trained with GPU from Zenodo. -->
+
+<!-- ## Training and validation datasets -->
+
+<!-- We first split the dataset of pictures in two datasets, a dataset for training, and the other one for validation.  -->
+
+<!-- We use the `exifr` package to extract metadata from pictures, get a list of pictures names and extract the species from these.  -->
+<!-- ```{r } -->
+<!-- library(exifr) -->
+<!-- pix_folder <- 'pix/pixJura/' -->
+<!-- file_list <- list.files(path = pix_folder,  -->
+<!--                         recursive = TRUE,  -->
+<!--                         pattern = "*.JPG",  -->
+<!--                         full.names = TRUE) -->
+<!-- labels <-  -->
+<!--   read_exif(file_list) %>% -->
+<!--   as_tibble() %>% -->
+<!--   unnest(Keywords, keep_empty = TRUE) %>% # keep_empty = TRUE keeps pix with no labels (empty pix) -->
+<!--   group_by(SourceFile) %>% -->
+<!--   slice_head() %>% # when several labels in a pix, keep first only -->
+<!--   ungroup() %>% -->
+<!--   mutate(Keywords = as_factor(Keywords)) %>% -->
+<!--   mutate(Keywords = fct_explicit_na(Keywords, "wo_tag")) %>% # when pix has no tag -->
+<!--   select(SourceFile, FileName, Keywords) %>%  -->
+<!--   mutate(Keywords = fct_recode(Keywords,  -->
+<!--                                # "chat" = "chat domestique",  -->
+<!--                                "chat" = "chat forestier", -->
+<!--                                "lievre" = "lièvre", -->
+<!--                                "vehicule" = "véhicule", -->
+<!--                                # "ecureuil" = "écureuil", -->
+<!--                                # "laporide" = "laporidés", -->
+<!--                                # "ongules" = "ongulés sauvages", -->
+<!--                                # "sciuridae" = "Sciuridae", -->
+<!--                                "ni" = "Non identifié")) %>%  -->
+<!--   filter(!(Keywords %in% c("ni", "wo_tag"))) -->
+<!-- ``` -->
+<!-- ```{r echo = TRUE} -->
+<!-- labels %>%  -->
+<!--   count(Keywords, sort = TRUE) %>%  -->
+<!-- #  print(n = Inf) %>% -->
+<!--   knitr::kable(caption = "Species considered, and number of pictures with these species in them.") -->
+<!-- ``` -->
+
+<!-- Then we pick 80$\%$ of the pictures for training in each category, the rest being used for validation. -->
+<!-- ```{r echo = TRUE} -->
+<!-- # training dataset -->
+<!-- pix_train <- labels %>%  -->
+<!--   select(SourceFile, FileName, Keywords) %>% -->
+<!--   group_by(Keywords) %>% -->
+<!--   filter(between(row_number(), 1, floor(n()*80/100))) # 80% per category -->
+<!-- # validation dataset -->
+<!-- pix_valid <- labels %>%  -->
+<!--   group_by(Keywords) %>% -->
+<!--   filter(between(row_number(), floor(n()*80/100) + 1, n())) -->
+<!-- ``` -->
+
+<!-- Eventually, we store these pictures in two distinct directories named `train` and `valid`.  -->
+<!-- ```{r} -->
+<!-- # create dir train/ and copy pix there, organised by categories -->
+<!-- dir.create('pix/train') # create training directory -->
+<!-- for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels  -->
+<!-- for (i in 1:nrow(pix_train)){ -->
+<!-- 	file.copy(as.character(pix_train$SourceFile[i]),  -->
+<!-- 	          paste0('pix/train/', as.character(pix_train$Keywords[i]))) # copy pix in corresp dir -->
+<!-- } -->
+<!-- # create dir valid/ and copy pix there, organised by categories. -->
+<!-- dir.create('pix/valid') # create validation dir -->
+<!-- for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/valid/',i)) # create dir for labels  -->
+<!-- for (i in 1:nrow(pix_valid)){ -->
+<!-- 	file.copy(as.character(pix_valid$SourceFile[i]),  -->
+<!-- 	          paste0('pix/valid/', as.character(pix_valid$Keywords[i]))) # copy pix in corresp dir -->
+<!-- } -->
+<!-- # delete pictures in valid/ directory for which we did not train the model -->
+<!-- to_be_deleted <- setdiff(levels(fct_drop(pix_valid$Keywords)), levels(fct_drop(pix_train$Keywords))) -->
+<!-- if (!is_empty(to_be_deleted)) { -->
+<!--   for (i in 1:length(to_be_deleted)){ -->
+<!--     unlink(paste0('pix/valid/', to_be_deleted[i])) -->
+<!--   } -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- What is the sample size of these two datasets? -->
+<!-- ```{r} -->
+<!-- bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>% -->
+<!--   group_by(dataset) %>% -->
+<!--   count(Keywords) %>%  -->
+<!--   rename(category = Keywords) %>% -->
+<!--   knitr::kable(caption = "Sample size (n) for the training and validation datasets.") -->
+<!-- ``` -->
+
+<!-- ## Transfer learning -->
+
+<!-- We proceed with transfer learning using the pictures from the Jura county (or a subsample more exactly).  -->
+
+<!-- We first load pictures, apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).  -->
+<!-- ```{r} -->
+<!-- dls <- ImageDataLoaders_from_folder( -->
+<!--   path = "pix/", -->
+<!--   train = "train", -->
+<!--   valid = "valid", -->
+<!--   item_tfms = Resize(size = 460),  -->
+<!--   bs = 10, -->
+<!--   batch_tfms = list(aug_transforms(size = 224,  -->
+<!--                                    min_scale = 0.75), # transformation -->
+<!--                     Normalize_from_stats( imagenet_stats() )), -->
+<!--   num_workers = 0, -->
+<!--   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE) -->
+<!-- ``` -->
+
+<!-- Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented below. -->
+<!-- ```{r} -->
+<!-- learn <- cnn_learner(dls = dls,  -->
+<!--                      arch = resnet18(),  -->
+<!--                      metrics = list(accuracy, error_rate)) -->
+<!-- ``` -->
+
+<!-- Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented below. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz Inter Core i9 8 cores processor and 64Go emory with CPU, and less than half an hour with GPU. On this reduced dataset, it took a bit more than a minute per epoch with CPU. Note that we save the model after each epoch for later use. -->
+<!-- ```{r} -->
+<!-- one_cycle <- learn %>%  -->
+<!--   fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE,  -->
+<!--                                            fname = 'model')) -->
+<!-- one_cycle -->
+<!-- ``` -->
+
+<!-- We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.   -->
+<!-- ```{r} -->
+<!-- # see model saved at each epoch -->
+<!-- # list.files('pix/pix/models/') -->
+<!-- learn$load("model_1") -->
+<!-- interp <- ClassificationInterpretation_from_learner(learn) -->
+<!-- interp$print_classification_report() -->
+<!-- ``` -->
+
+<!-- Four metrics are given.  -->
+
+<!-- Precision is the ratio tp / (tp + fp) where tp is the number of true positives and fp the number of false positives. It quantifies the ability of the classifier not to label as positive a sample that is negative. The question that this metric answers is of all pix that labeled as positive, how many actually were positive? -->
+
+<!-- The recall is the ratio tp / (tp + fn) where tp is the number of true positives and fn the number of false negatives. The recall is intuitively the ability of the classifier to find all the positive samples. The question recall answers is: of all the pix that were positive, how many did we label?  -->
+
+<!-- The f1-score can be interpreted as a weighted average of the precision and recall, it reaches its best value at 1 and worst score at 0. -->
+
+<!-- The f1-score weights recall more than precision by a factor of 1, meaning that recall and precision are equally important. f1-score is 2 * (recall * precision) / (recall + precision) -->
+
+<!-- The support is the number of occurrences of each class in y_true (ground truth or correct target values). -->
+
+<!-- macro avg: Calculate metrics for each label, and find their unweighted mean. This does not take label imbalance into account. -->
+
+<!-- weighted avg: Calculate metrics for each label, and find their average weighted by support (the number of true instances for each label). This alters ‘macro’ to account for label imbalance. -->
+
+<!-- Accuracy is the most intuitive performance measure and it is simply a ratio of correctly predicted observation to the total observations, it is (tp + tn)/(tp + tn + fp + fn)  -->
+
+<!-- We may extract the categories that get the most confused. -->
+<!-- ```{r} -->
+<!-- interp %>% most_confused() -->
+<!-- ``` -->
+
+<!-- ## Prediction -->
+
+<!-- In this section, we show how to use our freshly trained model to label pictures that were taken in another study site in the Ain county.  -->
+
+<!-- First, we get the path to the pictures. -->
+<!-- ```{r} -->
+<!-- fls <- list.files(path = "pix/pixAin", -->
+<!--                   full.names = TRUE, -->
+<!--                   recursive = TRUE) -->
+<!-- ``` -->
+
+<!-- Then carry out the prediction, and compare to the truth. -->
+<!-- ```{r} -->
+<!-- predicted <- character(3) -->
+<!-- categories <- interp$vocab %>% -->
+<!--   str_replace_all("[[:punct:]]", " ") %>% -->
+<!--   str_trim() %>% -->
+<!--   str_split("   ") %>% -->
+<!--   unlist() -->
+<!-- for (i in 1:length(fls)){ -->
+<!--   result <- learn %>% predict(fls[i]) # make prediction -->
+<!--   result[[3]] %>%  -->
+<!--     stringr::str_extract("\\d+") %>% -->
+<!--     as.integer() -> index # extract relevant info -->
+<!--   predicted[i] <- categories[index + 1] # match it with categories -->
+<!-- } -->
+<!-- data.frame(truth = c("lynx", "roe deer", "wild boar"), -->
+<!--            prediction = predicted) %>% -->
+<!--   knitr::kable(caption = "Comparison of the predictions vs. ground truth.") -->
+<!-- ``` -->
 
 # Session information
 
