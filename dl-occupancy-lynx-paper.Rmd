@@ -1,6 +1,6 @@
 ---
 title: "Deep learning, animal species identification, camera traps, spatial predator-prey co‐occurrence"
-author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Lucile Marescot, Jean-Baptiste Fanjul, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
+author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Jean-Baptiste Fanjul, Lucile Marescot, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output:
@@ -20,7 +20,8 @@ knitr::opts_chunk$set(tidy = FALSE,
                       fig.height = 8, 
                       echo = FALSE,
                       warning = FALSE,
-                      message = FALSE)
+                      message = FALSE,
+                      cache = TRUE)
 options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
@@ -35,19 +36,13 @@ Blabla.
 
 # Introduction
 
-+ Explosion of computer vision applications. 
+Computer vision is a field of artificial intelligence in which a machine is taught how to extract and interpret the content of an image [@NIPS2012_4824]. Computer vision relies on deep learning that allows computational models to learn from training data -- a set of manually labelled images -- and make predictions on new data -- a set of unlabelled images [@baraniuk_science_2020; @lecun_deep_2015]. With the increasing public availability of massive data, computer vision with deep learning has been extensively used to perform important tasks such as object detection, face recognition, action and activity recognition or human pose estimation in fields as diverse as medicine, robotics, transportation, genomics, sports and agriculture [@andina_deep_2018]. 
 
-+ In ecology in particular to do this and that. Make sure to cite latest review papers. 
+In ecology in particular, there has been a growing interest in deep learning for automatizing repetitive analyses on large amount of images, such as identifying plant and animal species, distinguish individuals of the same of different species, count individuals or detect relevant features [@christin_applications_2019; @lamba_deep_2019; @weinstein_computer_2018]. By saving hours of manual data analyses and tapping into massive amounts of data that keep accumulating with technological advances, deep learning has the potential to become an essential tool for ecologists.
 
-+ However, two communities bit disconnected despite efforts by people at the interface, and platforms like Wildlife Insights. 
+Despite the promising future of computer vision and deep learning, there are challenging issues toward the wide adoption by the community of ecologists [e.g. @wearn_responsible_2019]. First, there is a programming barrier as most, if not all, algorithms are written in the `Python` language while ecologists are familiar with `R` for a majority [@lai_evaluating_2019]. If ecologists are to use computer vision in routine, there is a need to build practical bridges between these two languages [@reticulate_ref; @tabak_improving_2020]. Second, most recent applications of computer vision via deep learning in ecology have focused on computational aspects and simple tasks without addressing the underlying ecological questions [e.g. @sutherland_identification_2013], or the statistical analysis of the generated data [e.g. @gimenez_statistical_2014]. Although perfectly understandable given the challenges at hand, we argue that a better integration of the why (ecological questions), the what (data) and the how (statistics) would be beneficial to computer vision for ecology [see also @weinstein_computer_2018].  
 
-+ Might explain why papers seldom propose the entire workflow of deep learning and ecological question treatment. 
-
-+ Also difficult to apply for non specialists, different terminology but also Python vs. R. 
-
-+ And lack of reproducibility. 
-
-+ Here, show case complete workflow on a case study on predator prey interactions. Data retrieving (pix), deep learning, then quantification of spatial co-occurrence. We argue that maybe not worth spending valuable time tuning algo to increase perf by one or two percent, if ecological indicators not too much affected. Entirely in R with which ecologists are familiar, and entirely reproducible. 
+Here, we showcase a full why-what-how workflow in `R` using a case study on elucidating the structure of an ecological community (a set of co-occurring species), namely that of the Eurasian lynx (*Lynx lynx*) and its main preys. First, we introduce the case study and motivate the need for deep learning. Second we illustrate deep learning for the identification of animal species in large amounts of images, including model training and validation with a dataset of labelled images, and prediction with a new dataset of unlabelled images. Last, we proceed with the quantification of spatial co-occurrence using statistical models. We hope that our reproducible workflow will be useful to applied statisticians and ecologists. 
 
 # Motivating case study
 
@@ -60,6 +55,17 @@ Blabla.
 + Main objective
 
 Les collègues de l'OFB et des fédérations de chasse collectent des données dans l'habitat naturel des espèces qui nous intéressent, grâce à des pièges photos laissés à des endroits stratégiques. Il s'agit ici du lynx et de ses proies le chevreuil et le chamois. La méthode est non-invasive, autrement dit on n'a pas besoin de capturer physiquement les animaux. La difficulté est que l'on se retrouve avec des grandes quantités de photos auxquelles il faut associer une étiquette espèce. 
+
+For much of the last
+century, ecologists have typically interpreted the diversity and
+composition of communities as the outcome of local-scale processes,
+both biotic (e.g. competition and predation) and abiotic
+(e.g. temperature and nutrients).
+
+Some of the most challenging questions in ecology concern
+communities: sets of co-occurring species.
+
+Citer les papiers qui font du deep learning et du camera traps. 
 
 # Deep learning for species identification
 
@@ -74,7 +80,7 @@ library(fastai)
 
 Expliquer principe général et les étapes ci-dessous. Below with CPU for reproducibility, subsample of picture datasets, only a few for automatic tagging. But results are proovided with GPU, more epochs and all pictures. Fully-trained model, all pictures, provided via Zenodo. 
 
-C'est là qu'entre en jeu le deep learning, de plus en plus utilisé en écologie, voir par exemple @christin2019. L'idée est de nourrir les algorithmes avec des photos en entrée pour en sortie récupérer l'espèce qui se trouve sur la photo. Nous avons utilisé [la librairie fast-ai](https://docs.fast.ai/) qui repose sur le language Python et sa librairie Pytorch. Un avantage de cette librairie est qu'elle vient avec [un package `R` `fastai`](https://eagerai.github.io/fastai/index.html) qui propose plusieurs fonctions pour l'utiliser. 
+C'est là qu'entre en jeu le deep learning, de plus en plus utilisé en écologie, voir par exemple @christin_applications_2019. L'idée est de nourrir les algorithmes avec des photos en entrée pour en sortie récupérer l'espèce qui se trouve sur la photo. Nous avons utilisé [la librairie fast-ai](https://docs.fast.ai/) qui repose sur le language Python et sa librairie Pytorch. Un avantage de cette librairie est qu'elle vient avec [un package `R` `fastai`](https://eagerai.github.io/fastai/index.html) qui propose plusieurs fonctions pour l'utiliser. 
 
 ## Model training and validation - Jura site
 
@@ -277,12 +283,9 @@ data.frame(truth = c("lynx", "roe deer", "wild boar"),
 
 Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
 
-# Results using GPU
-
 On obtient les probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies (Figure 1). Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.
 
 ![Probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies. En rouge, avec les photos étiquetées à la main. En gris-bleu, avec les photos étiquetées automatiquement.](figs/conditional_occ.jpg)
-
 
 # Discussion
 
@@ -301,18 +304,16 @@ En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire su
     vi) more interdisciplinary teams, so that mutual cross-fertilization. Algo more adapted to address ecological questions, and ecologists more able to formulate questions that would be of interest for computer scientists (voir mon thread suite aux journées du GDR)
     vii) cite imaginecology somewhere
     viii) citer papier(s) Vincent [@miele_revisiting_2021], et Jose sur Methods in Conservation dans Frontiers [@lahoz-monfort_comprehensive_2021].
-    
-
-## Bibliographic references
-
-## Acknowledgments
-
-ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. 
+    ix) We argue that maybe not worth spending valuable time tuning algo to increase perf by one or two percent, if ecological indicators not too much affected. Entirely in R with which ecologists are familiar, and entirely reproducible. 
 
 # Session information
 
 ```{r session-info}
 sessionInfo()
 ```
+
+# Acknowledgments
+
+ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. 
 
 # References
