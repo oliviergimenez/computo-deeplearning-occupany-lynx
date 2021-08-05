@@ -1,5 +1,5 @@
 ---
-title: "Deep learning, animal species identification, camera traps, spatial predator-prey co‐occurrence"
+title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: Trade-offs between deep learning for species identification and infering spatial co‐occurrence"
 author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Jean-Baptiste Fanjul, Lucile Marescot, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
 date: "`r Sys.Date()`"
 always_allow_html: true
@@ -25,7 +25,198 @@ knitr::opts_chunk$set(tidy = FALSE,
 options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
+theme_set(theme_light(base_size = 14))
+library(sf)
+library(cowplot)
+library(lubridate)
+library(stringi)
+library(kableExtra)
 ```
+
+```{r speciesdata, include = FALSE}
+# Get Jura pix
+load("dat/metadata_Jura.RData")
+# nrow(allfiles)
+allfiles %>%
+  separate(DateTimeOriginal, c("years", "months", "days", "hours", "mins", "secs")) %>%
+  mutate(years = replace(years, str_detect(SourceFile, "!! ATTENTION 2017 AU LIEU DE 2016 !!"), "2017")) %>%
+  mutate(years = replace(years, str_detect(years, "2006"), "2016")) %>%
+  mutate(years = replace(years, str_detect(years, "2011"), "2016")) %>%
+  mutate(years = replace(years, str_detect(years, "2012"), "2016")) %>%
+  mutate(years = as.numeric(years), 
+         months = as.numeric(months),  
+         days = as.numeric(days), 
+         hours = as.numeric(hours), 
+         mins = as.numeric(mins), 
+         secs = as.numeric(secs)) %>% 
+  mutate(y = years, 
+         m = months,
+         d = days) %>% 
+  unite(Date, years, months, days, sep="-") %>%
+  mutate(h = hours, mi = mins, s = secs) %>% 
+  unite(Time, hours, mins, secs, sep=":") %>%
+  unite(DateTime, Date, Time, sep=" ") %>%
+  mutate(DateTime = ymd_hms(DateTime)) %>%
+  select(FileName, Directory, Keywords, DateTime, y, m, d, h , mi, s) -> allpic_Jura
+# min(allpic_Jura$DateTime)
+# max(allpic_Jura$DateTime)
+# Get trap id.
+trapic_final_Jura <- allpic_Jura %>% 
+  separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
+  unite("n_point",value, value2, sep=".") %>% 
+  arrange(desc(as.numeric(n_point))) %>% 
+  separate_rows(sep=",", Keywords, convert = TRUE) %>% 
+  mutate(especes = Keywords) %>%
+  mutate(especes = stri_replace_all_fixed(especes, "vehicule", "humain"),
+         especes = stri_replace_all_fixed(especes, "chien", "humain"),
+         especes = stri_replace_all_fixed(especes, "cavalier", "humain"),
+         especes = stri_replace_all_fixed(especes, "chasseur", "humain"),
+         especes = stri_replace_all_fixed(especes, "frequentationhumaine", "humain"),
+         especes = stri_replace_all_fixed(especes, "vaches", "humain")) %>%
+  filter(especes %in% c('lynx','chevreuil','chamois','chat','renard'))
+# Format occupancy data
+tocc <- trapic_final_Jura %>%
+  mutate(especes = as_factor(especes),
+         n_point = as_factor(n_point)) %>%
+  mutate(mois = month(DateTime)) %>%
+  group_by(mois,n_point,especes,.drop = FALSE) %>%
+  count() %>%
+  filter(between(mois, 3, 11)) 
+# Table of detections and non-detections for lynx. 
+dat_lynx <- tocc %>%
+  filter(especes == 'lynx') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Roe deer
+dat_chevreuil <- tocc %>%
+  filter(especes == 'chevreuil') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+dat_chevreuil
+# Chamois
+dat_chamois <- tocc %>%
+  filter(especes == 'chamois') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Fox
+dat_renard <- tocc %>%
+  filter(especes == 'renard') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Cat
+dat_chat <- tocc %>%
+  filter(especes == 'chat') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Gather everything for later use
+dat_jura <- list(deer = dat_chevreuil,
+                 lynx = dat_lynx,
+                 chamois = dat_chamois,
+                 cat = dat_chat,
+                 fox = dat_renard)
+
+# Get Ain data
+load('dat/metadata_Ain.RData')
+# nrow(allfiles)
+allfiles %>%
+  mutate(Keywords = observed) %>% # pick manual tags
+  separate(DateTimeOriginal, c("years", "months", "days", "hours", "mins", "secs")) %>%
+  mutate(years = as.numeric(years), 
+         months = as.numeric(months),  
+         days = as.numeric(days), 
+         hours = as.numeric(hours), 
+         mins = as.numeric(mins), 
+         secs = as.numeric(secs)) %>% 
+  mutate(y = years, 
+         m = months,
+         d = days) %>% 
+  unite(Date, years, months, days, sep="-") %>%
+  mutate(h = hours, mi = mins, s = secs) %>% 
+  unite(Time, hours, mins, secs, sep=":") %>%
+  unite(DateTime, Date, Time, sep=" ") %>%
+  mutate(DateTime = ymd_hms(DateTime)) %>%
+  mutate(FileName = pix) %>%
+  select(FileName, Directory, Keywords, DateTime, y, m, d, h , mi, s) -> allpic_Ain
+# min(allpic$DateTime, na.rm = TRUE)
+# max(allpic$DateTime, na.rm = TRUE)
+# Get trap id
+trapic_final_Ain <- allpic_Ain %>% 
+  separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
+  unite("n_point",value, value2, sep=".") %>% 
+  arrange(desc(as.numeric(n_point))) %>% 
+  filter(Keywords %in% c('lynx','chevreuil','chamois','chat','renard')) %>%
+  mutate(Keywords = fct_drop(Keywords))
+# Format occupancy data
+tocc <- trapic_final_Ain %>%
+  mutate(especes = as_factor(Keywords),
+         n_point = as_factor(n_point)) %>%
+  mutate(mois = month(DateTime)) %>%
+  group_by(mois,n_point,especes,.drop = FALSE) %>%
+  count() %>%
+  filter(between(mois, 3, 11)) 
+# Table of detections and non-detections for roe deer. 
+dat_chevreuil <- tocc %>%
+  filter(especes == 'chevreuil') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# lynx
+dat_lynx <- tocc %>%
+  filter(especes == 'lynx') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Chamois. 
+dat_chamois <- tocc %>%
+  filter(especes == 'chamois') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Fox
+dat_renard <- tocc %>%
+  filter(especes == 'renard') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Cat
+dat_chat <- tocc %>%
+  filter(especes == 'chat') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Gather data together
+dat_ain <- list(deer = dat_chevreuil,
+                lynx = dat_lynx,
+                chamois = dat_chamois,
+                cat = dat_chat,
+                fox = dat_renard)
+```
+
 
 <button type="button" class="btn" title="Print to PDF" onClick="window.print()">Export to PDF</button>
 
@@ -36,38 +227,100 @@ Blabla.
 
 # Introduction
 
-Computer vision is a field of artificial intelligence in which a machine is taught how to extract and interpret the content of an image [@NIPS2012_4824]. Computer vision relies on deep learning that allows computational models to learn from training data -- a set of manually labelled images -- and make predictions on new data -- a set of unlabelled images [@baraniuk_science_2020; @lecun_deep_2015]. With the increasing public availability of massive data, computer vision with deep learning has been extensively used to perform important tasks such as object detection, face recognition, action and activity recognition or human pose estimation in fields as diverse as medicine, robotics, transportation, genomics, sports and agriculture [@andina_deep_2018]. 
+Computer vision is a field of artificial intelligence in which a machine is taught how to extract and interpret the content of an image [@NIPS2012_4824]. Computer vision relies on deep learning that allows computational models to learn from training data -- a set of manually labelled images -- and make predictions on new data -- a set of unlabelled images [@baraniuk_science_2020; @lecun_deep_2015]. With the growing availability of massive data, computer vision with deep learning is being increasingly used to perform important tasks such as object detection, face recognition, action and activity recognition or human pose estimation in fields as diverse as medicine, robotics, transportation, genomics, sports and agriculture [@andina_deep_2018]. 
 
-In ecology in particular, there has been a growing interest in deep learning for automatizing repetitive analyses on large amount of images, such as identifying plant and animal species, distinguish individuals of the same of different species, count individuals or detect relevant features [@christin_applications_2019; @lamba_deep_2019; @weinstein_computer_2018]. By saving hours of manual data analyses and tapping into massive amounts of data that keep accumulating with technological advances, deep learning has the potential to become an essential tool for ecologists.
+In ecology in particular, there is a growing interest in deep learning for automatizing repetitive analyses on large amount of images, such as identifying plant and animal species, distinguishing individuals of the same or different species, counting individuals or detecting relevant features [@christin_applications_2019; @lamba_deep_2019; @weinstein_computer_2018]. By saving hours of manual data analyses and tapping into massive amounts of data that keep accumulating with technological advances, deep learning has the potential to become an essential tool for ecologists and applied statisticians.
 
-Despite the promising future of computer vision and deep learning, there are challenging issues toward the wide adoption by the community of ecologists [e.g. @wearn_responsible_2019]. First, there is a programming barrier as most, if not all, algorithms are written in the `Python` language while ecologists are familiar with `R` for a majority of them [@lai_evaluating_2019]. If ecologists are to use computer vision in routine, there is a need for bridges between these two languages (through, e.g., the `reticulate` package @reticulate_ref or the `shiny` package @tabak_improving_2020). Second, most recent applications of computer vision via deep learning in ecology **short WoS review and Table?** have focused on computational aspects and simple tasks without addressing the underlying ecological questions [e.g., @sutherland_identification_2013], or carrying out the statistical data analysis [e.g., @gimenez_statistical_2014]. Although perfectly understandable given the challenges at hand, we argue that a better integration of the *why* (ecological questions), the *what* (data) and the *how* (statistics) would be beneficial to computer vision for ecology [see also @weinstein_computer_2018]. **develop here, speak about tradeoffs, and relevance**
+Despite the promising future of computer vision and deep learning, there are challenging issues toward their wide adoption by the community of ecologists [@wearn_responsible_2019]. First, there is a programming barrier as most, if not all, algorithms are written in the `Python` language while most ecologists are better versed in `R`  [@lai_evaluating_2019]. If ecologists are to use computer vision in routine, there is a need for bridges between these two languages (through, e.g., the `reticulate` package @reticulate_ref or the `shiny` package @tabak_improving_2020). Second, most recent applications of computer vision via deep learning in ecology **(short WoS review and Table?)** have focused on computational aspects and simple tasks without addressing the underlying ecological questions [@sutherland_identification_2013], or carrying out the statistical data analysis [@gimenez_statistical_2014]. Although perfectly understandable given the challenges at hand, we argue that a better integration of the *why* (ecological questions), the *what* (data) and the *how* (statistics) would be beneficial to computer vision for ecology [see also @weinstein_computer_2018]. **(Develop here, speak about tradeoffs, and relevance)**
 
-Here, we showcase a full why-what-how workflow in `R` using a case study on elucidating the structure of an ecological community (a set of co-occurring species), namely that of the Eurasian lynx (*Lynx lynx*) and its main preys. First, we introduce the case study and motivate the need for deep learning. Second we illustrate deep learning for the identification of animal species in large amounts of images, including model training and validation with a dataset of labelled images, and prediction with a new dataset of unlabelled images. Last, we proceed with the quantification of spatial co-occurrence using statistical models. **Main conclusion no need to go too far in the DL to get reasonable answer to ecological question** We hope that our reproducible workflow will be useful to applied statisticians and ecologists. 
+Here, we showcase a full why-what-how workflow in `R` using a case study on elucidating the structure of an ecological community (a set of co-occurring species), namely that of the Eurasian lynx (*Lynx lynx*) and its main preys. First, we introduce the case study and motivate the need for deep learning. Second we illustrate deep learning for the identification of animal species in large amounts of images, including model training and validation with a dataset of labelled images, and prediction with a new dataset of unlabelled images. Last, we proceed with the quantification of spatial co-occurrence using statistical models. **(Main conclusion no need to go too far in the DL to get reasonable answer to ecological question)** We hope that our reproducible workflow will be useful to ecologists and applied statisticians. 
 
-# Motivating case study
+# Collecting images with camera traps
 
-+ Lynx and its prey
+Lynx (*Lynx lynx*) went extinct in France at the end of the 19th century due to habitat degradation, human persecution and decrease in prey availability [@vandel_distribution_2005]. The species was reintroduced in Switzerland in the 1970s [@breitenmoser_large_1998], then re-colonised France through the Jura mountains in the 1980s [@vandel_distribution_2005]. The species is listed as endangered under the 2017 IUCN Red list and is of conservation concern in France due to habitat fragmentation, poaching and collisions with vehicles. The Jura holds the bulk of the French lynx population. 
 
-+ PPP Lynx
+To better understand its distribution, we need to quantify its interactions with its main preys, roe deer (*Capreolus capreolus*) and chamois (*Rupicapra rupicapra*) [@molinari-jobin_variation_2007], two ungulate species that are also hunted. To assess the relative contribution of predation and hunting, a predator-prey program was set up jointly by the French Office for Biodiversity, the Federations of Hunters from the Jura, Ain and Haute-Savoie counties and the French National Centre for Scientific Research. 
 
-+ Data collection
+Animal detections were made using a set of camera traps in the Jura mountains that were deployed in the Jura and Ain counties (see Figure 1). We divided the two study areas into grids of 2.7 $\times$ 2.7 km cells or sites hereafter [@zimmermann_optimizing_2013] in which we set two camera traps per site (Xenon white flash with passive infrared trigger mechanisms, model Capture, Ambush and Attack; Cuddeback), with `r lapply(dat_jura, nrow)$lynx` sites in the Jura study area, and `r lapply(dat_ain, nrow)$lynx` in the Ain study area that were active over the study period (from February 2016 to October 2017 for the Jura county, and from February 2017 to May 2019 for the Ain county). Camera traps were checked weekly to change memory cards, batteries and to remove fresh snow after heavy snowfall. 
 
-+ Main objective
+```{r studysite, fig.width = 10, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
+site_jura <- st_read("shp/SIG_39/communes_site_etude_jura.shp", quiet = TRUE)
+area_jura <- st_read("shp/SIG_39/grille_jura_2.7x2.7.shp", quiet = TRUE)
+trap_jura <- st_read("shp/SIG_39/Pieges_photos_JURA_l93.shp", quiet = TRUE)
+st_crs(site_jura) <-  2154
+st_crs(area_jura) <-  2154
+st_crs(trap_jura) <-  2154
 
-Les collègues de l'OFB et des fédérations de chasse collectent des données dans l'habitat naturel des espèces qui nous intéressent, grâce à des pièges photos laissés à des endroits stratégiques. Il s'agit ici du lynx et de ses proies le chevreuil et le chamois. La méthode est non-invasive, autrement dit on n'a pas besoin de capturer physiquement les animaux. La difficulté est que l'on se retrouve avec des grandes quantités de photos auxquelles il faut associer une étiquette espèce. 
+fig1a <- ggplot() + 
+  geom_sf(data = site_jura) +
+  geom_sf(data = area_jura,  alpha = 0.5) + 
+  geom_sf(data = trap_jura, col = "black", shape = 4, size = 3) +  
+  ggtitle("A. Jura county") 
 
-Carte de France, avec site Jura et Ain, et pièges photos. Quelque part mettre des photos de lynx, chevreuil et chamois. 
+site_ain <- st_read("shp/SIG_01/Ain_ZE.shp", quiet = TRUE) # l'aire d'etude
+area_ain <- st_read("shp/SIG_01/Maille_2.7_Ain.shp", quiet = TRUE) # la grille pour les pieges
+trap_ain <- st_read("shp/SIG_01/PP01_restreint.shp", quiet = TRUE)
+st_crs(site_ain) <-  2154
+st_crs(area_ain) <-  2154
+st_crs(trap_ain) <-  2154
 
-For much of the last
-century, ecologists have typically interpreted the diversity and
-composition of communities as the outcome of local-scale processes,
-both biotic (e.g. competition and predation) and abiotic
-(e.g. temperature and nutrients).
+fig1b <- ggplot() + 
+  geom_sf(data = site_ain) +
+  geom_sf(data = area_ain,  alpha = 0.5) + 
+  geom_sf(data = trap_ain, col = "black", shape = 4, size = 3) +
+  ggtitle("B. Ain county")
 
-Some of the most challenging questions in ecology concern
-communities: sets of co-occurring species.
+plot_row <- plot_grid(fig1a, fig1b)
+plot_row
+```
 
-Citer les papiers qui font du deep learning et du camera traps. 
+```{r}
+species_Jura <- allpic_Jura %>% 
+  separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
+  unite("n_point",value, value2, sep=".") %>% 
+  arrange(desc(as.numeric(n_point))) %>% 
+  separate_rows(sep=",", Keywords, convert = TRUE) %>% 
+  mutate(especes = as_factor(Keywords)) %>%
+  filter(!is.na(especes), 
+         !especes%in%c("Non identifié", "Non id", "Non iden", "")) %>%
+  mutate(especes = fct_recode(especes, 
+                              "sanglier" = "sangli",
+                              "humain" = "humai",
+                              "chat" = "chat forestier",
+                              "chat" = "chat domestique",
+                              "chasseur" = "chasse",
+                              "sanglier" = "sangliers",
+                              "blaireau" = "blaireaux")) 
+species_Ain <- allpic_Ain %>% 
+  separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
+  unite("n_point",value, value2, sep=".") %>% 
+  arrange(desc(as.numeric(n_point))) %>% 
+  separate_rows(sep=",", Keywords, convert = TRUE) %>% 
+  mutate(especes = as_factor(Keywords)) %>%
+  filter(!is.na(especes), 
+         !especes%in%c("Non identifié", "Non id", "Non iden", "")) %>%
+  mutate(especes = fct_recode(especes, 
+                              "sanglier" = "sangliers",
+                              "blaireau" = "blaireaux")) 
+```
+
+
+In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation for camera trap studies. Computer vision with deep learning has been identified as a promising approach to expedite this tedious task [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
+
+```{r categories, results="asis", cache = FALSE}
+cat("
+<style>
+caption {
+      color: black;
+      font-size: 1.2em;
+    }
+</style>
+")
+n_Jura <- species_Jura %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% rename("Species in Jura study site" = especes)
+n_Ain <- species_Ain %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% rename("Species in Ain study site" = especes)
+cbind(n_Jura, n_Ain) %>% kable(caption = "**Table 1**: Species identified in the Jura and Ain study sites with samples size (n). Only species with at least 100 images are shown.") %>% kable_styling()
+```
+
 
 # Deep learning for species identification
 
@@ -94,6 +347,36 @@ Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des phot
 
 # Spatial co-occurrence
 
+Les modèles d’occupation, tels que celui de Rota et al. (2016), supposent que l’aire
+d’étude est fermée, que l’état d’occupation d’un site ne change pas au cours de la période
+d’étude et que les sites sont indépendants. Pour s’assurer de respecter les hypothèses d’application
+du modèle, nous découpons les données de détection en trois saisons basées sur
+la biologie du lynx. La première saison est la période hivernale. Elle s’étend du 1er octobre
+2016 au 31 janvier 2017. A cette période les femelles sont mobiles et sont suivies de leurs
+jeunes en apprentissage. La deuxième saison est la période printanière qui dure du 1er février
+au 31 mai 2017. Au cours de cette saison l’activité du lynx est la plus élevée. Les
+jeunes de l’année passée se séparent de leur mère et dispersent entre janvier et avril. Ils
+sont alors à la recherche d’un territoire. De février à mi-avril, la période de reproduction a
+lieu. Puis les femelles s’isolent pour mettre bas. Finalement lors de la troisième période (estivale),
+du 1er juin au 30 septembre 2017, les femelles mettent bas après une période de 67 à
+70 jours. Pendant cette période et jusqu’à 6 à 9 semaines après la naissance des jeunes, la
+mère reste sédentaire. Les femelles sont, dès lors, suivies des jeunes en apprentissage
+(Breitenmoser-Würsten et al. 2007a; Drouilly 2019).
+
+Pour chaque saison, les photos brutes sont transformées en données de détection.
+Plus précisément, nous construisons une matrice de détection par espèce, composée de 0
+(non-détection de l’espèce) et de 1 (détection de l’espèce). Les lignes représentent les
+pièges et les colonnes les occasions de capture. La capture est ici la prise d’une image par
+un piège photographique. Dans notre cas, l’occasion de capture est définie comme une semaine
+(Gimenez et al. 2019). Lorsque les pièges ne sont pas actifs à certaines occasions de
+capture, nous spécifions que les données ne sont pas disponibles, et les semaines de capture
+de ces pièges ne sont pas prises en compte dans l’analyse. Nous évitons ainsi de
+confondre la non-collecte de données avec une non-détection des espèces. De plus, lorsqu’un
+piège ne capture pas de lynx pendant une longue période, il est déplacé ou supprimé
+et change alors de nom. Ces changements ne posent pas de problèmes lors de l’analyse,
+puisque celle-ci n’est pas spatialisée et que chaque piège est supposé indépendant des
+autres.
+
 Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
 
 On obtient les probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies (Figure 1). Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.
@@ -118,6 +401,34 @@ En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire su
     vii) cite imaginecology somewhere
     viii) citer papier(s) Vincent [@miele_revisiting_2021], et Jose sur Methods in Conservation dans Frontiers [@lahoz-monfort_comprehensive_2021].
     ix) We argue that maybe not worth spending valuable time tuning algo to increase perf by one or two percent, if ecological indicators not too much affected. Entirely in R with which ecologists are familiar, and entirely reproducible. 
+    
+Ongoing work to include covariates.
+
+The lynx (Lynx lynx, Linné 1758) is yet again present into the Jura Mountains since the 80's.
+In order to sustain his return into a functional ecosystem, we need to understand the factors
+that affect lynx and his preys distribution, the roe deer (Capreolus capreolus, Linné 1758)
+and the chamois (Rupicapra rupicapra, Linné 1758). How do environmental variables (forest
+cover, human disturbance) affect lynx and his preys presence and their co-occurrence in the
+French Jura ? What is the relative contribution of habitat preferences and prey-predator relationships
+? To answer these questions, we used the multi-species occupancy model developed
+by Rota et al. (2016) which accounts for species imperfect detection. Thanks to this model,
+we quantified the lynx presence in function of environmental variables and the presence
+and absence of his preys, by using data from a non invasive camera trapping monitoring protocol.
+We show that the lynx and his preys presence is equally influenced by forest cover and
+the presence of lynx, chamois or roe deer. Therefore, we need to account for interactions
+between species in relation with habitat quality in inferring the occupancy of these species.
+    
+
+For much of the last
+century, ecologists have typically interpreted the diversity and
+composition of communities as the outcome of local-scale processes,
+both biotic (e.g. competition and predation) and abiotic
+(e.g. temperature and nutrients).
+
+Some of the most challenging questions in ecology concern
+communities: sets of co-occurring species.
+
+
 
 <!-- # Appendix: Reproducible example of species identification on camera trap images with CPU -->
 

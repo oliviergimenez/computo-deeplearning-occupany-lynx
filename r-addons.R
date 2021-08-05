@@ -15,6 +15,13 @@ local({
 ## Additional R packages needed by the user (CRAN)
 ## example: remote
 ## install.packages("anRpackage")
+install.packages("sf")
+install.packages("cowplot")
+install.packages("lubridate")
+install.packages("stringi")
+install.packages("kableExtra")
+install.packages("sf")
+
 ## ____________________________________________________
 
 ## ____________________________________________________
