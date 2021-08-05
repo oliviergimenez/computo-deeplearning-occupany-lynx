@@ -1,5 +1,5 @@
 ---
-title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: Trade-offs between deep learning for species identification and infering spatial co‐occurrence"
+title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: Illustration of a trade-off between deep learning for species identification and inferring spatial co‐occurrence"
 author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Jean-Baptiste Fanjul, Lucile Marescot, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
 date: "`r Sys.Date()`"
 always_allow_html: true
@@ -305,7 +305,7 @@ species_Ain <- allpic_Ain %>%
 ```
 
 
-In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation for camera trap studies. Computer vision with deep learning has been identified as a promising approach to expedite this tedious task [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
+In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation for camera trap studies. Computer vision with deep learning has been identified as a promising approach to expedite this tedious task [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
 
 ```{r categories, results="asis", cache = FALSE}
 cat("
@@ -316,8 +316,29 @@ caption {
     }
 </style>
 ")
-n_Jura <- species_Jura %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% rename("Species in Jura study site" = especes)
-n_Ain <- species_Ain %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% rename("Species in Ain study site" = especes)
+n_Jura <- species_Jura %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% 
+  mutate(especes = fct_recode(especes,
+                              "human" = "humain",
+                              "vehicule" = "véhicule",
+                              "dog" = "chien",
+                              "fox" = "renard",
+                              "wild board" = "sanglier",
+                              "roe deer" = "chevreuil",
+                              "cat" = "chat",
+                              "badger" = "blaireau")) %>%
+  rename("Species in Jura study site" = especes)
+n_Ain <- species_Ain %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>% 
+  mutate(especes = fct_recode(especes,
+                              "human" = "humain",
+                              "dog" = "chien",
+                              "fox" = "renard",
+                              "wild board" = "sanglier",
+                              "roe deer" = "chevreuil",
+                              "cat" = "chat",
+                              "badger" = "blaireau",
+                              "hunter" = "chasseur",
+                              "rider" = "cavalier")) %>%
+  rename("Species in Ain study site" = especes)
 cbind(n_Jura, n_Ain) %>% kable(caption = "**Table 1**: Species identified in the Jura and Ain study sites with samples size (n). Only species with at least 100 images are shown.") %>% kable_styling()
 ```
 
