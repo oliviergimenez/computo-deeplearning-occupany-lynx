@@ -458,7 +458,7 @@ Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des phot
 
 In this section, we analysed the data we acquired from the previous section. We formatted the camera trap data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 2).
 
-```{r figure2, fig.cap="**Figure 2**: Detections (turquoise) and non-detections (fushia) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis."}
+```{r figure2, eval = F, fig.cap="**Figure 2**: Detections (turquoise) and non-detections (fushia) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis."}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 library(unmarked)
@@ -471,6 +471,9 @@ cat <- as.matrix(rbind(dat_ain$cat[,-1], dat_jura$cat[,-1]))
 y <- list("lynx" = lynx, "roe deer" = deer, "chamois" = chamois)
 data <- unmarkedFrameOccuMulti(y=y)
 # summary(data)
+
+
+
 plot(data, 
      xlab = "Sampling occasions", 
      ylab = "Sites")
