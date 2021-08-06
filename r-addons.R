@@ -20,7 +20,7 @@ local({
 #install.packages("lubridate")
 #install.packages("stringi")
 #install.packages("kableExtra")
-#install.packages("sf")
+install.packages("unmarked")
 
 ## ____________________________________________________
 
