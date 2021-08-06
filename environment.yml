@@ -15,3 +15,5 @@ dependencies:
   - r-sf
   - r-stringi
   - r-kableextra
+  - r-ggtext
+  - r-wesanderson
