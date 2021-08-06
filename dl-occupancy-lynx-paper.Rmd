@@ -31,6 +31,8 @@ library(cowplot)
 library(lubridate)
 library(stringi)
 library(kableExtra)
+library(wesanderson)
+library(ggtext)
 ```
 
 ```{r speciesdata, include = FALSE}
@@ -98,7 +100,6 @@ dat_chevreuil <- tocc %>%
   select(mois,n_point,counts) %>%
   pivot_wider(names_from = mois, values_from = counts) %>% 
   as.data.frame() 
-dat_chevreuil
 # Chamois
 dat_chamois <- tocc %>%
   filter(especes == 'chamois') %>% 
@@ -130,7 +131,7 @@ dat_jura <- list(deer = dat_chevreuil,
                  cat = dat_chat,
                  fox = dat_renard)
 
-# Get Ain data
+# Get Ain data, pictures manually labelled
 load('dat/metadata_Ain.RData')
 # nrow(allfiles)
 allfiles %>%
@@ -215,6 +216,93 @@ dat_ain <- list(deer = dat_chevreuil,
                 chamois = dat_chamois,
                 cat = dat_chat,
                 fox = dat_renard)
+
+# Get Ain data, pictures automatically labelled
+load('dat/metadata_Ain.RData')
+# nrow(allfiles)
+allfiles %>%
+  mutate(Keywords = predicted) %>% # pick automatic tags
+  separate(DateTimeOriginal, c("years", "months", "days", "hours", "mins", "secs")) %>%
+  mutate(years = as.numeric(years), 
+         months = as.numeric(months),  
+         days = as.numeric(days), 
+         hours = as.numeric(hours), 
+         mins = as.numeric(mins), 
+         secs = as.numeric(secs)) %>% 
+  mutate(y = years, 
+         m = months,
+         d = days) %>% 
+  unite(Date, years, months, days, sep="-") %>%
+  mutate(h = hours, mi = mins, s = secs) %>% 
+  unite(Time, hours, mins, secs, sep=":") %>%
+  unite(DateTime, Date, Time, sep=" ") %>%
+  mutate(DateTime = ymd_hms(DateTime)) %>%
+  mutate(FileName = pix) %>%
+  select(FileName, Directory, Keywords, DateTime, y, m, d, h , mi, s) -> allpic_Ain
+# min(allpic$DateTime, na.rm = TRUE)
+# max(allpic$DateTime, na.rm = TRUE)
+# Get trap id
+trapic_final_Ain <- allpic_Ain %>% 
+  separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
+  unite("n_point",value, value2, sep=".") %>% 
+  arrange(desc(as.numeric(n_point))) %>% 
+  filter(Keywords %in% c('lynx','chevreuil','chamois','chat','renard')) %>%
+  mutate(Keywords = fct_drop(Keywords))
+# Format occupancy data
+tocc <- trapic_final_Ain %>%
+  mutate(especes = as_factor(Keywords),
+         n_point = as_factor(n_point)) %>%
+  mutate(mois = month(DateTime)) %>%
+  group_by(mois,n_point,especes,.drop = FALSE) %>%
+  count() %>%
+  filter(between(mois, 3, 11)) 
+# Table of detections and non-detections for roe deer. 
+dat_chevreuil <- tocc %>%
+  filter(especes == 'chevreuil') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# lynx
+dat_lynx <- tocc %>%
+  filter(especes == 'lynx') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Chamois. 
+dat_chamois <- tocc %>%
+  filter(especes == 'chamois') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Fox
+dat_renard <- tocc %>%
+  filter(especes == 'renard') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Cat
+dat_chat <- tocc %>%
+  filter(especes == 'chat') %>% 
+  mutate(counts = if_else(n == 0, 0, 1)) %>%
+  ungroup() %>%
+  select(mois,n_point,counts) %>%
+  pivot_wider(names_from = mois, values_from = counts) %>% 
+  as.data.frame() 
+# Gather data together (obtained via deeplearning)
+dat_ain_dl <- list(deer = dat_chevreuil,
+                lynx = dat_lynx,
+                chamois = dat_chamois,
+                cat = dat_chat,
+                fox = dat_renard)
+# Map('-', dat_ain_dl, dat_ain)
 ```
 
 
@@ -368,41 +456,300 @@ Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des phot
 
 # Spatial co-occurrence
 
-Les modèles d’occupation, tels que celui de Rota et al. (2016), supposent que l’aire
-d’étude est fermée, que l’état d’occupation d’un site ne change pas au cours de la période
-d’étude et que les sites sont indépendants. Pour s’assurer de respecter les hypothèses d’application
-du modèle, nous découpons les données de détection en trois saisons basées sur
-la biologie du lynx. La première saison est la période hivernale. Elle s’étend du 1er octobre
-2016 au 31 janvier 2017. A cette période les femelles sont mobiles et sont suivies de leurs
-jeunes en apprentissage. La deuxième saison est la période printanière qui dure du 1er février
-au 31 mai 2017. Au cours de cette saison l’activité du lynx est la plus élevée. Les
-jeunes de l’année passée se séparent de leur mère et dispersent entre janvier et avril. Ils
-sont alors à la recherche d’un territoire. De février à mi-avril, la période de reproduction a
-lieu. Puis les femelles s’isolent pour mettre bas. Finalement lors de la troisième période (estivale),
-du 1er juin au 30 septembre 2017, les femelles mettent bas après une période de 67 à
-70 jours. Pendant cette période et jusqu’à 6 à 9 semaines après la naissance des jeunes, la
-mère reste sédentaire. Les femelles sont, dès lors, suivies des jeunes en apprentissage
-(Breitenmoser-Würsten et al. 2007a; Drouilly 2019).
+In this section, we analysed the data we acquired from the previous section. We formatted the camera trap data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 2).
 
-Pour chaque saison, les photos brutes sont transformées en données de détection.
-Plus précisément, nous construisons une matrice de détection par espèce, composée de 0
-(non-détection de l’espèce) et de 1 (détection de l’espèce). Les lignes représentent les
-pièges et les colonnes les occasions de capture. La capture est ici la prise d’une image par
-un piège photographique. Dans notre cas, l’occasion de capture est définie comme une semaine
-(Gimenez et al. 2019). Lorsque les pièges ne sont pas actifs à certaines occasions de
-capture, nous spécifions que les données ne sont pas disponibles, et les semaines de capture
-de ces pièges ne sont pas prises en compte dans l’analyse. Nous évitons ainsi de
-confondre la non-collecte de données avec une non-détection des espèces. De plus, lorsqu’un
-piège ne capture pas de lynx pendant une longue période, il est déplacé ou supprimé
-et change alors de nom. Ces changements ne posent pas de problèmes lors de l’analyse,
-puisque celle-ci n’est pas spatialisée et que chaque piège est supposé indépendant des
-autres.
+```{r figure2, fig.cap="**Figure 2**: Detections (turquoise) and non-detections (fushia) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis."}
+## Occupancy analyses
+## First with manually tagged data, then with automaticaly tagged data
+library(unmarked)
+# Format the data as required for package unmarked
+lynx <- as.matrix(rbind(dat_ain$lynx[,-1], dat_jura$lynx[,-1]))
+deer <- as.matrix(rbind(dat_ain$deer[,-1], dat_jura$deer[,-1]))
+chamois <- as.matrix(rbind(dat_ain$chamois[,-1], dat_jura$chamois[,-1]))
+fox <- as.matrix(rbind(dat_ain$fox[,-1], dat_jura$fox[,-1]))
+cat <- as.matrix(rbind(dat_ain$cat[,-1], dat_jura$cat[,-1]))
+y <- list("lynx" = lynx, "roe deer" = deer, "chamois" = chamois)
+data <- unmarkedFrameOccuMulti(y=y)
+# summary(data)
+plot(data, 
+     xlab = "Sampling occasions", 
+     ylab = "Sites")
+y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
+data <- unmarkedFrameOccuMulti(y=y)
+```
+
+To quantify spatial co-occurrence betwen lynx and its preys, we used a multispecies occupancy modeling approach [@Rota2016] using the `R` package `unmarked` [@unmarkedFiske]. The multispecies occupancy model assumes that observations $y_{sit}$, conditional on the latent occupancy state of species $s$ at site $i$ ($Z_{si}$) are drawn from Bernoulli random variables $Y_{sit} | Z_{si} \sim \mbox{Bernoulli}(Z_{si}p_{sit})$ where $p_{sit}$ is the detection probability of species $s$ at site $i$ and sampling occasion $t$. Detection probabilities can be modeled as a function of site and/or sampling covariates, or the presence/absence of other species, but for the sake of illustration here, we will make them species-specific only. 
+
+The latent occupancy states are assumed to be distributed as multivariate Bernoulli random variables [@dai_multivariate_2013]. Let us consider on 2 species, species 1 and 2, then $Z_i = (Z_{i1}, Z_{i2}) \sim \mbox{multivariate Bernoulli}(\psi_{11}, \psi_{10}, \psi_{01}, \psi_{00})$ where $\psi_{11}$ is the probability that a site is occupied by both species 1 and 2, $\psi_{10}$ the probability that a site is occupied by species 1 but not 2, $\psi_{01}$ the probability that a site is occupied by species 2 but not 1, and $\psi_{00}$ the probability a site is occupied by none of them. Note that we considered species-specific only occupancy probabilities but these could be modeled as site-specific covariates. Marginal occupancy probabilities are simply obtained as $\Pr(Z_{i1}=1) = \psi_{11} + \psi_{10}$ and $\Pr(Z_{i2}=1) = \psi_{11} + \psi_{01}$. With this model, we may also infer potential interactions by calculating conditional probabilities such as for example the probability of a site being occupied by species 2 conditional of species 1 $\Pr(Z_{i2} = 1| Z_{i1} = 1) = \displaystyle{\frac{\psi_{11}}{\psi_{11}+\psi_{10}}}$. 
+
+```{r, include = FALSE, eval = FALSE}
+# f1, f2, f3, f4, f5, f12, f13, f14, f15, f23, f24, f25, f34, f35, f45, ...
+occFormulas <- c('~1','~1','~1','~1','~1','~1','~1','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0') 
+detFormulas <- c('~1','~1','~1','~1','~1')
+seed <- 24762
+inits <- rep(0, 12)
+set.seed(seed)
+fit <- occuMulti(detformulas = detFormulas,
+                 stateformulas = occFormulas,data,
+                 method = "Nelder-Mead",
+                 control = list(maxit = 5000, reltol = 1e-4),
+                 starts = rnorm(n = 12, mean = inits, sd = .5))
+# Get natural parameter and detection estimates
+mle <- fit@opt$par
+names(mle) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
+# Get occupancy estimates
+psi_lynx <- predict(fit,'state',species='lynx')[1,]
+psi_deer <- predict(fit,'state',species='deer')[1,]
+psi_chamois <- predict(fit,'state',species='chamois')[1,]
+psi_fox <- predict(fit,'state',species='fox')[1,]
+psi_cat <- predict(fit,'state',species='cat')[1,]
+# With SEs
+psi_lynx <- head(predict(fit,'state',species="lynx"), 1)
+psi_deer <- head(predict(fit,'state',species="deer"), 1)
+psi_chamois <- head(predict(fit,'state',species="chamois"), 1)
+# Get detection estimates
+p_lynx <- plogis(mle['lp1'])
+p_deer <- plogis(mle['lp2'])
+p_chamois <- plogis(mle['lp3'])
+p_fox <- plogis(mle['lp4'])
+p_cat <- plogis(mle['lp5'])
+# With SEs
+se <- sqrt(diag(solve(fit@opt$hessian)))
+names(se) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
+p_lynx <- data.frame(mle = p_lynx, 
+                     lci = plogis(mle['lp1'] - 1.96 * se["lp1"]), 
+                     uci = plogis(mle['lp1'] + 1.96 * se["lp1"]))
+p_deer <- data.frame(mle = p_deer, 
+                     lci = plogis(mle['lp2'] - 1.96 * se["lp2"]), 
+                     uci = plogis(mle['lp2'] + 1.96 * se["lp2"]))
+p_chamois <- data.frame(mle = p_chamois, 
+                     lci = plogis(mle['lp3'] - 1.96 * se["lp3"]), 
+                     uci = plogis(mle['lp3'] + 1.96 * se["lp3"]))
+# Conditional probabilities of occupancy
+# Pr(lynx present | deer and chamois present)
+pc1 <- predict(fit,'state',species='lynx',cond=c('deer','chamois'))[1,]
+# Pr(lynx present | deer and chamois absent)
+pc2 <- predict(fit,'state',species='lynx',cond=c('-deer','-chamois'))[1,]
+# Pr(lynx present | deer present and chamois absent)
+pc3 <- predict(fit,'state',species='lynx',cond=c('deer','-chamois'))[1,]
+# Pr(lynx present | deer absent and chamois present)
+pc4 <- predict(fit,'state',species='lynx',cond=c('-deer','chamois'))[1,]
+
+conditional1 <- 
+  structure(list(param = c("Pr(lynx present | deer and chamois present)", 
+                           "Pr(lynx present | deer and chamois absent)", 
+                           "Pr(lynx present | deer present and chamois absent)",
+                           "Pr(lynx present | deer absent and chamois present)"), 
+                 low2.5 = as_vector(c(pc1[3], pc2[3], pc3[3], pc4[3])), 
+                 est = as_vector(c(pc1[1], pc2[1], pc3[1], pc4[1])), 
+                 up2.5 = as_vector(c(pc1[4], pc2[4], pc3[4], pc4[4]))), 
+            .Names = c("param", "low2.5", "est", "up2.5"), 
+            row.names = 7:10, 
+            class = c("data.frame", "mplus.params"))
+
+marginal1 <- 
+  structure(list(param = c("Pr(lynx present)", "Pr(deer present)", "Pr(chamois present)"), 
+                 low2.5 = as_vector(c(psi_lynx[3], psi_deer[3], psi_chamois[3])), 
+                 est = as_vector(c(psi_lynx[1], psi_deer[1], psi_chamois[1])), 
+                 up2.5 = as_vector(c(psi_lynx[4], psi_deer[4], psi_chamois[4]))), 
+            .Names = c("param", "low2.5", "est", "up2.5"), 
+            row.names = 7:9, 
+            class = c("data.frame", "mplus.params"))
+
+# Format the data as required for package unmarked
+lynx <- as.matrix(rbind(dat_ain_dl$lynx[,-1], dat_jura$lynx[,-1]))
+deer <- as.matrix(rbind(dat_ain_dl$deer[,-1], dat_jura$deer[,-1]))
+chamois <- as.matrix(rbind(dat_ain_dl$chamois[,-1], dat_jura$chamois[,-1]))
+fox <- as.matrix(rbind(dat_ain_dl$fox[,-1], dat_jura$fox[,-1]))
+cat <- as.matrix(rbind(dat_ain_dl$cat[,-1], dat_jura$cat[,-1]))
+y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
+data <- unmarkedFrameOccuMulti(y=y)
+# summary(data)
+# plot(data)
+# f1, f2, f3, f4, f5, f12, f13, f14, f15, f23, f24, f25, f34, f35, f45, ...
+occFormulas <- c('~1','~1','~1','~1','~1','~1','~1','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0') 
+detFormulas <- c('~1','~1','~1','~1','~1')
+seed <- 4223
+inits <- rep(0, 12)
+set.seed(seed)
+fit <- occuMulti(detformulas = detFormulas,
+                 stateformulas = occFormulas,data,
+                 method = "Nelder-Mead",
+                 control = list(maxit = 5000, reltol = 1e-4),
+                 starts = rnorm(n = 12, mean = inits, sd = .5))
+# Get natural parameter and detection estimates
+mle <- fit@opt$par
+names(mle) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
+# Get occupancy estimates
+psi_lynx <- predict(fit,'state',species='lynx')[1,]
+psi_deer <- predict(fit,'state',species='deer')[1,]
+psi_chamois <- predict(fit,'state',species='chamois')[1,]
+psi_fox <- predict(fit,'state',species='fox')[1,]
+psi_cat <- predict(fit,'state',species='cat')[1,]
+# With SEs
+psi_lynx <- head(predict(fit,'state',species="lynx"), 1)
+psi_deer <- head(predict(fit,'state',species="deer"), 1)
+psi_chamois <- head(predict(fit,'state',species="chamois"), 1)
+# Get detection estimates
+p_lynx <- plogis(mle['lp1'])
+p_deer <- plogis(mle['lp2'])
+p_chamois <- plogis(mle['lp3'])
+p_fox <- plogis(mle['lp4'])
+p_cat <- plogis(mle['lp5'])
+# With SEs
+se <- sqrt(diag(solve(fit@opt$hessian)))
+names(se) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
+p_lynx <- data.frame(mle = p_lynx, 
+                     lci = plogis(mle['lp1'] - 1.96 * se["lp1"]), 
+                     uci = plogis(mle['lp1'] + 1.96 * se["lp1"]))
+p_deer <- data.frame(mle = p_deer, 
+                     lci = plogis(mle['lp2'] - 1.96 * se["lp2"]), 
+                     uci = plogis(mle['lp2'] + 1.96 * se["lp2"]))
+p_chamois <- data.frame(mle = p_chamois, 
+                     lci = plogis(mle['lp3'] - 1.96 * se["lp3"]), 
+                     uci = plogis(mle['lp3'] + 1.96 * se["lp3"]))
+# Conditional probabilities of occupancy
+# Pr(lynx present | deer and chamois present)
+pc1 <- predict(fit,'state',species='lynx',cond=c('deer','chamois'))[1,]
+# Pr(lynx present | deer and chamois absent)
+pc2 <- predict(fit,'state',species='lynx',cond=c('-deer','-chamois'))[1,]
+# Pr(lynx present | deer present and chamois absent)
+pc3 <- predict(fit,'state',species='lynx',cond=c('deer','-chamois'))[1,]
+# Pr(lynx present | deer absent and chamois present)
+pc4 <- predict(fit,'state',species='lynx',cond=c('-deer','chamois'))[1,]
+
+conditional2 <- 
+  structure(list(param = c("Pr(lynx present | deer and chamois present)", 
+                           "Pr(lynx present | deer and chamois absent)", 
+                           "Pr(lynx present | deer present and chamois absent)",
+                           "Pr(lynx present | deer absent and chamois present)"), 
+                 low2.5 = as_vector(c(pc1[3], pc2[3], pc3[3], pc4[3])), 
+                 est = as_vector(c(pc1[1], pc2[1], pc3[1], pc4[1])), 
+                 up2.5 = as_vector(c(pc1[4], pc2[4], pc3[4], pc4[4]))), 
+            .Names = c("param", "low2.5", "est", "up2.5"), 
+            row.names = 7:10, 
+            class = c("data.frame", "mplus.params"))
+
+marginal2 <- 
+  structure(list(param = c("Pr(lynx present)", "Pr(deer present)", "Pr(chamois present)"), 
+                 low2.5 = as_vector(c(psi_lynx[3], psi_deer[3], psi_chamois[3])), 
+                 est = as_vector(c(psi_lynx[1], psi_deer[1], psi_chamois[1])), 
+                 up2.5 = as_vector(c(psi_lynx[4], psi_deer[4], psi_chamois[4]))), 
+            .Names = c("param", "low2.5", "est", "up2.5"), 
+            row.names = 7:9, 
+            class = c("data.frame", "mplus.params"))
+
+# Dataviz conditional probabilities
+df <- rbind(conditional1, conditional2)
+df$model <- rep(c('manual tagging', 'automatic tagging'), c(nrow(conditional1), nrow(conditional2)))
+df$param_f <- factor(df$param, 
+                     rev(c("Pr(lynx present | deer and chamois present)", 
+                           "Pr(lynx present | deer and chamois absent)", 
+                           "Pr(lynx present | deer present and chamois absent)",
+                           "Pr(lynx present | deer absent and chamois present)")),
+                     rev(c("Pr(lynx present | deer and chamois present)", 
+                           "Pr(lynx present | deer and chamois absent)", 
+                           "Pr(lynx present | deer present and chamois absent)",
+                           "Pr(lynx present | deer absent and chamois present)")))
+
+labels <- c(
+  "Pr(lynx present | deer and chamois present)" = "<img src='img/light_lcc.jpg'
+    width='350' /><br>*Pr(lynx present | deer and chamois present)*",
+  "Pr(lynx present | deer and chamois absent)" = "<img src='img/light_lnotcnotc.jpg'
+    width='350' /><br>*Pr(lynx present | deer and chamois absent)*",
+  "Pr(lynx present | deer present and chamois absent)" = "<img src='img/light_lcnotc.jpg'
+    width='350' /><br>*Pr(lynx present | deer present and chamois absent)*",
+  "Pr(lynx present | deer absent and chamois present)" = "<img src='img/light_lnotcc.jpg'
+    width='350' /><br>*Pr(lynx present | deer absent and chamois present)*"
+)
+
+df %>%
+  ggplot() + 
+  geom_pointrange(aes(x = est, 
+                      y = param_f, 
+                      color = model, 
+                      fill = model, 
+                      xmax = up2.5, 
+                      xmin = low2.5), 
+                  position = position_dodge(width = .8),
+                  size = 1.5,
+                  pch = 21,
+                  fill = "white",
+                  stroke = 1.5) +
+  scale_color_manual(values = wes_palette("Royal1")) + 
+  scale_y_discrete(name = NULL,
+                   labels = labels) + 
+  xlim(0, 1) + 
+  labs(x = "", y = "", color = "") +
+  guides(color = guide_legend(reverse=T)) + 
+  theme(axis.text.y = element_markdown(color = "black", size = 20),
+        axis.ticks.y = element_blank()) -> conditional
+
+ggsave(filename = "img/conditional_occ.png", 
+       plot = conditional,
+       width = 15,
+       height = 10,
+       dpi = 600)
+
+# Dataviz marginal probabilities
+df <- rbind(marginal1, marginal2)
+df$model <- rep(c('manual tagging', 'automatic tagging'), c(nrow(marginal1), nrow(marginal2)))
+df$param_f <- factor(df$param, 
+                     rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')),
+                     rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')))
+
+labels <- c(
+  "Pr(lynx present)" = "<img src='img/lynx.JPG'
+    width='200' /><br>*Pr(lynx present)*",
+  "Pr(deer present)" = "<img src='img/deer.JPG'
+    width='200' /><br>*Pr(deer present)*",
+  "Pr(chamois present)" = "<img src='img/chamois.JPG'
+    width='200' /><br>*Pr(chamois present)*"
+)
+
+
+df %>%
+  ggplot() + 
+  geom_pointrange(aes(x = est, 
+                      y = param_f, 
+                      color = model, 
+                      fill = model, 
+                      xmax = up2.5, 
+                      xmin = low2.5), 
+                  position = position_dodge(width = .8),
+                  size = 1.5,
+                  pch = 21,
+                  fill = "white",
+                  stroke = 1.5) +
+  scale_color_manual(values = wesanderson::wes_palette("Royal1")) + 
+  scale_y_discrete(name = NULL,
+                   labels = labels) + 
+  xlim(0.15, 1) + 
+  labs(x = "", y = "", color = "") +
+  guides(color = guide_legend(reverse=T)) + 
+  theme(axis.text.y = element_markdown(color = "black", size = 20),
+        axis.ticks.y = element_blank(),
+        ) -> marginal
+ggsave(filename = "img/marginal_occ.png", 
+        plot = marginal,
+       width = 15,
+       height = 10,
+       dpi = 600)
+```
 
 Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
 
 On obtient les probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies (Figure 1). Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.
 
-![Probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies. En rouge, avec les photos étiquetées à la main. En gris-bleu, avec les photos étiquetées automatiquement.](figs/conditional_occ.jpg)
+
+```{r figure3, fig.cap="**Figure 3**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using data pooled from the Jura and Ain county study sites, either with the manually-tagged Ain pictures (in red) or with the automatically-tagged Ain pictures (in blue-grey)."}
+knitr::include_graphics("img/marginal_occ.png")
+```
+
+```{r figure4, fig.cap="**Figure 4**: Lynx occupancy probability conditional on the presence or absence of its preys (roed deer and chamois). Parameter estimates are from a multispecies occupancy model using data pooled from the Jura and Ain county study sites, either with the manually-tagged Ain pictures (in red) or with the automatically-tagged Ain pictures (in blue-grey)."}
+knitr::include_graphics("img/conditional_occ.png")
+```
+
 
 # Discussion
 
