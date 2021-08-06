@@ -1,5 +1,5 @@
 ---
-title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: Illustration of a trade-off between deep learning for species identification and inferring spatial co‐occurrence"
+title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: A trade-off between deep learning for species identification and inferring spatial co‐occurrence"
 author: "Olivier Gimenez, Maëlis Kervellec, Anna Chaine, Jean-Baptiste Fanjul, Lucile Marescot, Christophe Duchamp (qui d'autre? les tagueurs/tagueuses?)"
 date: "`r Sys.Date()`"
 always_allow_html: true
@@ -33,6 +33,36 @@ library(stringi)
 library(kableExtra)
 library(wesanderson)
 library(ggtext)
+
+# visualise occupancy data
+plot_unmarked <- function(data) {
+  x <- data
+  y1 <- getY(x)
+  ym <- max(y1, na.rm=TRUE)
+  M <- nrow(y1)
+  J <- ncol(y1)
+  S <- length(x@ylist)
+  y1 <- as.data.frame(do.call(rbind,x@ylist))
+  colnames(y1) <- paste("obs",1:J)
+  y1$site <- rep(1:M,S)
+  y1$species <- as.factor(rep(names(x@ylist),each=M))
+  y2 <- reshape(y1, idvar=c("site", "species"), varying=list(1:obsNum(x)),
+                v.names="value", direction="long")
+  y2$variable <- factor(paste("obs", y2$time))
+  y2 %>%
+    mutate(value = as_factor(value),
+           site = as_factor(site),
+           variable = fct_reorder(variable, time)) %>%
+    ggplot() +
+    aes(x = variable, y = site, fill = value) + 
+    geom_tile() +
+    scale_y_discrete(name = 'site',
+                     labels = rownames(x@ylist$lynx)) + 
+    facet_wrap(vars(species), ncol = 1) +
+    scale_fill_manual(values=c( "#99CCFF","#FF9900"))+
+    xlab('time') +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+}
 ```
 
 ```{r speciesdata, include = FALSE}
@@ -454,11 +484,13 @@ Quels sont les résultats obtenus? Nous avons d'abord fait du transfer learning 
 
 Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des photos prises avec des pièges installés sur un autre site, dans l'Ain. Ces photos ont aussi été étiquetées à la main, on connait donc la vérité. 
 
+Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. 
+
 # Spatial co-occurrence
 
 In this section, we analysed the data we acquired from the previous section. We formatted the camera trap data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 2).
 
-```{r figure2, eval = F, fig.cap="**Figure 2**: Detections (turquoise) and non-detections (fushia) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis."}
+```{r figure2, fig.cap="**Figure 2**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 library(unmarked)
@@ -472,11 +504,33 @@ y <- list("lynx" = lynx, "roe deer" = deer, "chamois" = chamois)
 data <- unmarkedFrameOccuMulti(y=y)
 # summary(data)
 
+x <- data
+y1 <- getY(x)
+ym <- max(y1, na.rm=TRUE)
+M <- nrow(y1)
+J <- ncol(y1)
+S <- length(x@ylist)
+y1 <- as.data.frame(do.call(rbind,x@ylist))
+colnames(y1) <- 1:J
+y1$site <- rep(1:M,S)
+y1$species <- as.factor(rep(names(x@ylist),each=M))
+y1 %>%
+  pivot_longer(cols = 1:9,
+               names_to = "time",
+               values_to = "value") %>%
+  mutate(site = as_factor(site),
+         time = as_factor(time),
+         value = as_factor(value)) %>%
+  ggplot() +
+  aes(x = time, y = site, fill = value) + 
+  geom_tile() +
+  scale_y_discrete(name = 'Sites',
+                   labels = rownames(x@ylist$lynx)) + 
+  facet_wrap(vars(species), nrow = 1) +
+  scale_fill_manual(values = c( "gray90","black"),
+                    labels = c("non-detection", "detection"))+
+  labs(x = 'Sampling occasions', fill = "")
 
-
-plot(data, 
-     xlab = "Sampling occasions", 
-     ylab = "Sites")
 y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
 data <- unmarkedFrameOccuMulti(y=y)
 ```
@@ -740,10 +794,7 @@ ggsave(filename = "img/marginal_occ.png",
        dpi = 600)
 ```
 
-Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. Ce sont les modèles d'occupancy développés par @rota2016 et implémentés dans `R` par @fiske2011. 
-
-On obtient les probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies (Figure 1). Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.
-
+**Probabilités marginales en Figure 3, et probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies en Figure 4. Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. A commenter en fonction des résultats du deep learning. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.**
 
 ```{r figure3, fig.cap="**Figure 3**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using data pooled from the Jura and Ain county study sites, either with the manually-tagged Ain pictures (in red) or with the automatically-tagged Ain pictures (in blue-grey)."}
 knitr::include_graphics("img/marginal_occ.png")
