@@ -1049,6 +1049,6 @@ sessionInfo()
 
 # Acknowledgments
 
-ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. 
+ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. Ajouter vos propres remerciements. 
 
 # References
