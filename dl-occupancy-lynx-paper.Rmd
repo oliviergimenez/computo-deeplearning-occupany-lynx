@@ -628,7 +628,9 @@ To quantify spatial co-occurrence betwen lynx and its preys, we used a multispec
 
 The latent occupancy states are assumed to be distributed as multivariate Bernoulli random variables [@dai_multivariate_2013]. Let us consider on 2 species, species 1 and 2, then $Z_i = (Z_{i1}, Z_{i2}) \sim \mbox{multivariate Bernoulli}(\psi_{11}, \psi_{10}, \psi_{01}, \psi_{00})$ where $\psi_{11}$ is the probability that a site is occupied by both species 1 and 2, $\psi_{10}$ the probability that a site is occupied by species 1 but not 2, $\psi_{01}$ the probability that a site is occupied by species 2 but not 1, and $\psi_{00}$ the probability a site is occupied by none of them. Note that we considered species-specific only occupancy probabilities but these could be modeled as site-specific covariates. Marginal occupancy probabilities are simply obtained as $\Pr(Z_{i1}=1) = \psi_{11} + \psi_{10}$ and $\Pr(Z_{i2}=1) = \psi_{11} + \psi_{01}$. With this model, we may also infer potential interactions by calculating conditional probabilities such as for example the probability of a site being occupied by species 2 conditional of species 1 $\Pr(Z_{i2} = 1| Z_{i1} = 1) = \displaystyle{\frac{\psi_{11}}{\psi_{11}+\psi_{10}}}$. 
 
-```{r, include = FALSE, eval = FALSE}
+```{r include = FALSE, eval = FALSE}
+set.seed(2022)
+kk <- 10
 # f1, f2, f3, f4, f5, f12, f13, f14, f15, f23, f24, f25, f34, f35, f45, ...
 occFormulas <- c('~1','~1','~1','~1','~1','~1','~1','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0') 
 detFormulas <- c('~1','~1','~1','~1','~1')
@@ -636,10 +638,23 @@ seed <- 24762
 inits <- rep(0, 12)
 set.seed(seed)
 fit <- occuMulti(detformulas = detFormulas,
-                 stateformulas = occFormulas,data,
+                 stateformulas = occFormulas,
+                 data,
                  method = "Nelder-Mead",
                  control = list(maxit = 5000, reltol = 1e-4),
                  starts = rnorm(n = 12, mean = inits, sd = .5))
+# look for optimal penalty
+optimal_penalty <- optimizePenalty(fit,
+                                   penalties = c(0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12), 
+                                   k = kk, 
+                                   boot = 1)
+# refit model after fixing the best penalty
+fit <- occuMulti(detFormulas, 
+                   occFormulas, 
+                   data, 
+                   control = list(maxit = 5000),
+                   penalty = optimal_penalty@call$penalty) 
+
 # Get natural parameter and detection estimates
 mle <- fit@opt$par
 names(mle) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
@@ -723,6 +738,19 @@ fit <- occuMulti(detformulas = detFormulas,
                  method = "Nelder-Mead",
                  control = list(maxit = 5000, reltol = 1e-4),
                  starts = rnorm(n = 12, mean = inits, sd = .5))
+
+# look for optimal penalty
+optimal_penalty <- optimizePenalty(fit,
+                                   penalties = c(0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12), 
+                                   k = kk, 
+                                   boot = 1)
+# refit model after fixing the best penalty
+fit <- occuMulti(detFormulas, 
+                   occFormulas, 
+                   data, 
+                   control = list(maxit = 5000),
+                   penalty = optimal_penalty@call$penalty) 
+
 # Get natural parameter and detection estimates
 mle <- fit@opt$par
 names(mle) <- c('f1','f2','f3','f4','f5','f12','f13','lp1','lp2','lp3','lp4','lp5')
@@ -831,7 +859,7 @@ df %>%
   theme(axis.text.y = element_markdown(color = "black", size = 20),
         axis.ticks.y = element_blank()) -> conditional
 
-ggsave(filename = "img/conditional_occ.png", 
+ggsave(filename = "img/conditional_occ_penalized.png", 
        plot = conditional,
        width = 15,
        height = 10,
@@ -876,7 +904,7 @@ df %>%
   theme(axis.text.y = element_markdown(color = "black", size = 20),
         axis.ticks.y = element_blank(),
         ) -> marginal
-ggsave(filename = "img/marginal_occ.png", 
+ggsave(filename = "img/marginal_occ_penalized.png", 
         plot = marginal,
        width = 15,
        height = 10,
@@ -886,11 +914,11 @@ ggsave(filename = "img/marginal_occ.png",
 **Probabilités marginales en Figure 4, et probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies en Figure 5. Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. A commenter en fonction des résultats du deep learning. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée. There is a small bias in the occupancy prob of lynx given the presence of both its prey when we rely on automatic tagging. The difference in estimates is small, and we may well decide to ignore this bias and save a lot of time by not tagging pix manually. Now we have a bigger issue w/ the occupancy prob for lynx given roe deer presence and chamois absence, which is clearly under-estimated.**
 
 ```{r figure4, fig.cap="**Figure 4**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
-knitr::include_graphics("img/marginal_occ.png")
+knitr::include_graphics("img/marginal_occ_penalized.png")
 ```
 
 ```{r figure5, fig.cap="**Figure 5**: Lynx occupancy probability conditional on the presence or absence of its preys (roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
-knitr::include_graphics("img/conditional_occ.png")
+knitr::include_graphics("img/conditional_occ_penalized.png")
 ```
 
 
