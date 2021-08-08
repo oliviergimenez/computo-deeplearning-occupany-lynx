@@ -1,0 +1,13 @@
+﻿species;precision;recall
+badger;0.78;0.88
+deer;0.67;0.21
+chamois;0.86;0.81
+cat;0.89;0.78
+roe deer;0.67;0.81
+dog;0.78;0.84
+human;0.99;0.79
+hare;0.32;0.52
+lynx;0.87;0.95
+fox;0.85;0.90
+wild boar;0.93;0.88
+vehicule;0.95;0.98

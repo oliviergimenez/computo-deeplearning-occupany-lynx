@@ -17,3 +17,7 @@ dependencies:
   - r-kableextra
   - r-ggtext
   - r-wesanderson
+  - r-highcharter
+  - r-janitor
+  
+  

@@ -33,6 +33,9 @@ library(stringi)
 library(kableExtra)
 library(wesanderson)
 library(ggtext)
+library(fastai)
+library(highcharter)
+library(janitor)
 
 # visualise occupancy data
 plot_unmarked <- function(data) {
@@ -423,7 +426,7 @@ species_Ain <- allpic_Ain %>%
 ```
 
 
-In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation for camera trap studies. Computer vision with deep learning has been identified as a promising approach to expedite this tedious task [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
+In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation for camera trap studies. Computer vision with deep learning has been identified as a promising approach to expedite this tedious task [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. Labelled images for the Ain county are available from **Zenodo link** and that for the Jura county are available from **Zenodo link**. 
 
 ```{r categories, results="asis", cache = FALSE}
 cat("
@@ -457,40 +460,126 @@ n_Ain <- species_Ain %>% count(especes, sort = TRUE) %>% slice_head(n = 10) %>%
                               "hunter" = "chasseur",
                               "rider" = "cavalier")) %>%
   rename("Species in Ain study site" = especes)
-cbind(n_Jura, n_Ain) %>% kable(caption = "**Table 1**: Species identified in the Jura and Ain study sites with samples size (n). Only species with at least 100 images are shown.") %>% kable_styling()
+cbind(n_Jura, n_Ain) %>% 
+  kable(caption = "**Table 1**: Species identified in the Jura and Ain study sites with samples size (n). Only first 10 species with most images are shown.") %>% 
+  kable_styling()
 ```
 
 
 # Deep learning for species identification
 
-## General overview
+From the images we obtained with camera traps (Table 1), we trained a model for identifying species using the Jura study site as a calibration dataset. We then assessed this model's ability to automatically identify species on a new dataset, or transferability, using the Ain study site as an evaluation dataset. 
 
-I used transfer learning to fine-tune a pre-trained CNN (resnet50) using the annotated pictures from the Jura site. Then I compared the predictions from my new model for the pictures from the Ain site with the manual annotations for these pictures. Transfer learning was achieved with GPU machines. 
+## Training - Jura study site
 
-We use the fastai package that provides R wrappers to [fastai](https://github.com/fastai/fastai). The [fastai library](https://henry090.github.io/fastai/) simplifies training of CNNs. 
-```{r}
-library(fastai)
+We selected at random 80\% of the annotated images for each species in the Jura study site for training, and 20\% for testing. We applied various transformations (flipping, brightness and contrast modifications; @shorten_survey_2019) to improve training (see Appendix). To reduce model training time and overcome the small number of images, we used transfer learning [@Yosinski2014; @shao_transfer_2015] and used a pre-trained model as a starting point for training our model to perform species identification. Specifically, we trained a deep convolutional neural network (ResNet-50) architecture [@he_deep_2016] using the `fastai` library (<https://docs.fast.ai/>) that implements the `PyTorch` library [@NEURIPS2019_9015]. Interestingly, the `fastai` library comes with an `R` interface (<https://eagerai.github.io/fastai/>) that uses the `reticulate` package to communicate with `Python`, therefore allowing `R` users to access Python up-to-date deep learning tools. We trained models on the Montpellier Bioinformatics Biodiversity platform using a GPU machine (Titan Xp nvidia) with 16Go of RAM. We used 20 epochs which took approximately 10 hours. The computational burden prevented us from providing a full reproducible analysis, but we do so with a subsample of the dataset in the Appendix. All trained models are available from <https://doi.org/10.5281/zenodo.5164796>.
+
+We calculated three metrics to evaluate our model performance at correctly identifying species [e.g. @Duggan2021]. Specifically, we relied on *accuracy* the ratio of correct predictions to the total number of predictions, *recall* a measure of false negatives (FN; e.g. an image with a lynx for which our model predicts another species) with recall = TP / (TP + FN) where TP is for true positives, and *precision* a measure of false positives (FP; e.g. an image with any species but a lynx for which our predicts a lynx) with precision = TP / (TP + FP). In camera trap studies, a strategy consists in optimizing precision if the focus is on rare species, while recall should be optimized if the focus is on commom species [@Duggan2021]. 
+
+We achieved 85\% accuracy during training. Our model had good performances for the three classes we were interested in, 87\% precision for lynx and 81\% recall for both roe deer and chamois (Table 2). 
+
+```{r perf, results="asis", cache = FALSE}
+cat("
+<style>
+caption {
+      color: black;
+      font-size: 1.2em;
+    }
+</style>
+")
+options(knitr.kable.NA = '')
+read_csv2("dat/perf_fastai.csv") %>% 
+  clean_names() %>%
+  kable(caption = "**Table 2**: Model training performance. Images from the Jura study site were used for training.") %>%
+  kable_styling() %>%
+  column_spec(1, bold = TRUE)
 ```
 
-Expliquer principe général et les étapes ci-dessous. Below with CPU for reproducibility, subsample of picture datasets, only a few for automatic tagging. But results are proovided with GPU, more epochs and all pictures. Fully-trained model, all pictures, provided via Zenodo. 
+## Transferability - Ain study site
 
-C'est là qu'entre en jeu le deep learning, de plus en plus utilisé en écologie, voir par exemple @christin_applications_2019. L'idée est de nourrir les algorithmes avec des photos en entrée pour en sortie récupérer l'espèce qui se trouve sur la photo. Nous avons utilisé [la librairie fast-ai](https://docs.fast.ai/) qui repose sur le language Python et sa librairie Pytorch. Un avantage de cette librairie est qu'elle vient avec [un package `R` `fastai`](https://eagerai.github.io/fastai/index.html) qui propose plusieurs fonctions pour l'utiliser. 
+We evaluated transferability for our trained model by predicting species on images from the Ain study site which were not used for training. Precision was 0.77\% for lynx, and while we achieved 0.86\% recall for roe deer, our model performed poorly for chamois with 0.08\% recall (Table 3). To better understand this pattern, we display the results under the form of a confusion matrix that compares model classifications to manual classifications (Figure 2). There were a lot of false negatives for chamois, meaning that when chamois was actually present in an image, it was often classified as another species by our model. Overall, our model trained on images from the Jura study site did poorly at predicting correctly species on images from the Ain study site. This result does not come as a surprise, as generalizing classification algorithms to new environments is known to be difficult [@beery_recognition_2018]. While a computer scientist would be disappointed in these results, an ecologist will wonder whether ecological inference on the interactions between lynx and its prey is biased by these average performances, a question we address in the next section.  
 
-## Model training and validation - Jura site
+```{r transf, results="asis", cache = FALSE}
+cat("
+<style>
+caption {
+      color: black;
+      font-size: 1.2em;
+    }
+</style>
+")
+load("dat/pixAinannot.RData")
+## compute accuracy
+#tmp <- unclass(table(tt_final$predicted,tt_final$observed))
+#mask <- colnames(tmp)[!colnames(tmp) %in% rownames(tmp)]
+#tmp <- tmp[,!colnames(tmp)%in%mask]
+#caret::confusionMatrix(tmp)
+tt_final %>%
+#  add_count(observed, sort = TRUE) %>%
+#  filter(n > 200) %>%
+  mutate(observed = fct_recode(observed,
+                              "human" = "humain",
+                              "dog" = "chien",
+                              "deer" = "cerf",
+                              "fox" = "renard",
+                              "wild board" = "sangliers",
+                              "roe deer" = "chevreuil",
+                              "cat" = "chat",
+                              "badger" = "blaireaux",
+                              "hunter" = "chasseur",
+                              "rider" = "cavalier",
+                              "marten" = "martre",
+                              "cow" = "vaches",
+                              "hare" = "lievre")) %>%
+  mutate(observed = fct_drop(observed)) %>%
+  mutate(predicted = fct_recode(predicted,
+                              "human" = "humain",
+                              "dog" = "chien",
+                              "fox" = "renard",
+                              "wild board" = "sangliers",
+                              "roe deer" = "chevreuil",
+                              "cat" = "chat",
+                              "badger" = "blaireaux",
+                              "hunter" = "chasseur",
+                              "rider" = "cavalier",
+                              "deer" = "cerf",
+                              "marten" = "martre",
+                              "cow" = "vaches",
+                              "hare" = "lievre")) -> tt_final_clean
+dout <- unclass(table(tt_final_clean$predicted, tt_final_clean$observed))
+mask <- colnames(dout)[!colnames(dout) %in% rownames(dout)]
+dout <- dout[,!colnames(dout)%in%mask]
+true_positives  <- diag(dout)
+false_positives <- colSums(dout) - true_positives
+false_negatives <- rowSums(dout) - true_positives
+true_negatives  <- sum(dout) - true_positives - false_positives - false_negatives
+precision <- true_positives/(true_positives+false_positives)
+recall <- true_positives/(true_positives+false_negatives)
+data.frame(precision = round(precision,2),
+           recall = round(recall,2)) %>% #, n=rowSums(dout)) %>%
+  kable(caption = "**Table 3**: Model transferability performance. Images from the Ain study site were used for assessing transferability.") %>%
+  kable_styling() %>%
+  column_spec(1, bold = TRUE)
+```
 
-Quels sont les résultats obtenus? Nous avons d'abord fait du transfer learning sur un site d'étude dans le Jura où nous avions des photos déjà étiquetées. Nous avons utilisé un modèle resnet50 déjà pré-entrainé. Nous arrivons à classifier le lynx, et ses proies, le chamoix et le chevreuil, avec un degré de certitude satisfaisant. 
 
-## Prediction - Ain site
-
-Ensuite, nous avons utilisé le modèle pour étiqueter automatiquement des photos prises avec des pièges installés sur un autre site, dans l'Ain. Ces photos ont aussi été étiquetées à la main, on connait donc la vérité. 
-
-Sur la base du nombre de faux négatifs (une photo sur laquelle on a un lynx mais on prédit une autre espèce) et de faux positifs (une photo sur laquelle on n'a pas de lynx mais on prédit qu'il y en a un), les résultats sont peu satisfaisants. Toutefois, la question est de savoir si le manque de précision nuit à l'inférence des interactions prédateur-proie. Pour ce faire, on a utilisé des modèles statistiques qui permettent d'inférer les co-occurrences entre espèces en tenant compte de la difficulté de les détecter sur le terrain. 
+```{r figure2, fig.cap="**Figure 2**: Confusion matrix comparing automatic to manual species classifications. Species that were predicted by our model are in columns, and species that are actually in the images are in rows."}
+perf_prediction <- hchart(dout, label = TRUE) %>%
+    hc_yAxis(title = list(text = 'Actual')) %>%
+    hc_xAxis(title = list(text = 'Predicted'),
+             labels = list(rotation = -90)) 
+perf_prediction
+```
 
 # Spatial co-occurrence
 
-In this section, we analysed the data we acquired from the previous section. We formatted the camera trap data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 2).
+**Expliquer qu'on compare une analyse des interactions en prenant les données Jura + Ain manually labelled, supposed to be error-free, aux données Jura + Ain automatically tagged, pour évaluer empiriquement le biais éventuel dans ecological inference.**
 
-```{r figure2, fig.cap="**Figure 2**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis.", fig.align="center"}
+In this section, we analysed the data we acquired from the previous section. For the sake of comparison, we considered two datasets, a dataset made of the images manually labelled for both the Jura and Ain study sites pooled together (*ground truth dataset*), and another dataset in which we pooled the images that were manually labelled for the Jura study site and the images that we automatically labelled for the Ain study site using our trained model (*classified dataset*). 
+
+We formatted the data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 3).
+
+```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 library(unmarked)
@@ -698,7 +787,7 @@ marginal2 <-
 
 # Dataviz conditional probabilities
 df <- rbind(conditional1, conditional2)
-df$model <- rep(c('manual tagging', 'automatic tagging'), c(nrow(conditional1), nrow(conditional2)))
+df$model <- rep(c('ground truth dataset', 'classified dataset'), c(nrow(conditional1), nrow(conditional2)))
 df$param_f <- factor(df$param, 
                      rev(c("Pr(lynx present | deer and chamois present)", 
                            "Pr(lynx present | deer and chamois absent)", 
@@ -750,7 +839,7 @@ ggsave(filename = "img/conditional_occ.png",
 
 # Dataviz marginal probabilities
 df <- rbind(marginal1, marginal2)
-df$model <- rep(c('manual tagging', 'automatic tagging'), c(nrow(marginal1), nrow(marginal2)))
+df$model <- rep(c('ground truth dataset', 'classified dataset'), c(nrow(marginal1), nrow(marginal2)))
 df$param_f <- factor(df$param, 
                      rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')),
                      rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')))
@@ -794,18 +883,45 @@ ggsave(filename = "img/marginal_occ.png",
        dpi = 600)
 ```
 
-**Probabilités marginales en Figure 3, et probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies en Figure 4. Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. A commenter en fonction des résultats du deep learning. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée.**
+**Probabilités marginales en Figure 4, et probabilités de présence du lynx, conditionnellement à la présence ou absence de ses proies en Figure 5. Il y a un léger biais dans l'estimation de la probabilité de présence du lynx sachant la présence de ses deux proies favorites quand on se fie à l'étiquetage automatique des photos. A commenter en fonction des résultats du deep learning. Etant donné que les différences ne sont pas énormes, l'écologue pourra décider de les ignorer au regard du temps gagné par rapport à un étiquetage à la main. Maintenant le biais est plus important sur la probabilité de présence du lynx sachant la présence du chevreuil et l'absence du chamois qui elle est sous-estimée. There is a small bias in the occupancy prob of lynx given the presence of both its prey when we rely on automatic tagging. The difference in estimates is small, and we may well decide to ignore this bias and save a lot of time by not tagging pix manually. Now we have a bigger issue w/ the occupancy prob for lynx given roe deer presence and chamois absence, which is clearly under-estimated.**
 
-```{r figure3, fig.cap="**Figure 3**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using data pooled from the Jura and Ain county study sites, either with the manually-tagged Ain pictures (in red) or with the automatically-tagged Ain pictures (in blue-grey)."}
+```{r figure4, fig.cap="**Figure 4**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
 knitr::include_graphics("img/marginal_occ.png")
 ```
 
-```{r figure4, fig.cap="**Figure 4**: Lynx occupancy probability conditional on the presence or absence of its preys (roed deer and chamois). Parameter estimates are from a multispecies occupancy model using data pooled from the Jura and Ain county study sites, either with the manually-tagged Ain pictures (in red) or with the automatically-tagged Ain pictures (in blue-grey)."}
+```{r figure5, fig.cap="**Figure 5**: Lynx occupancy probability conditional on the presence or absence of its preys (roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
 knitr::include_graphics("img/conditional_occ.png")
 ```
 
 
 # Discussion
+
+To our knowledge, our model (Tabak Machine learning to classify animal species in camera trap
+images: Applications in ecology) achieved the highest accuracy (97.6%)
+to date in using machine learning to classify wildlife in camera trap
+images (a recent paper achieved 95% accuracy; Norouzzadeh et al.,
+2018).
+
+which is especially useful for
+researchers studying the species and groups available in this package
+(Table 1) in North America, as it performed well (82% accuracy)
+in classifying ungulates in an out-of-
+sample
+test of images from
+Canada.
+
+The ability to rapidly identify millions of images from camera
+traps can fundamentally change the way ecologists design and implement
+wildlife studies. The burden of classifying images from camera
+traps has led ecologists to limit the duration and size of camera
+trap studies (Kelly et al., 2008; Scott et al., 2018). By removing this
+burden, camera traps can be applied in more studies including monitoring
+invasive or sensitive species, long-term
+ecological research
+and small-scale
+occupancy studies.
+
+
 
 En conclusion, l'utilisation d'un modèle entrainé sur un site pour prédire sur un autre site est délicate. Il est facile de se perdre dans les dédales du deep learning, mais il faut garder le cap de la question écologique, et on peut accepter des performances moyennes des algorithmes si le biais engendré sur les indicateurs écologiques est faible. Malgré tout, on peut faire mieux, et nous développons actuellement des modèles de distribution d'espèce qui prendrait à la fois en compte les interactions et les faux positifs et faux négatifs. Pour aller plus loin avec le deep learning et l'analyse d'images, nous renvoyons vers @miele2021. 
 
@@ -850,6 +966,33 @@ both biotic (e.g. competition and predation) and abiotic
 Some of the most challenging questions in ecology concern
 communities: sets of co-occurring species.
 
+
+
+Tabek et al. Improving the accessibility and transferability of machine
+learning algorithms for identification of animals in camera trap
+images: MLWIC2 : 
+For example, when using machine learning model output to design occupancy
+and abundance models, we can incorporate accuracy estimates
+that were generated when conducting model testing. The error
+of a machine learning model in identifying species from camera traps
+is similar to the problem of imperfect detection of wildlife when conducting
+field surveys (McIntyre, Majelantle, Slip, & Harcourt, 2020).
+Wildlife are often not detected when they are present (false negatives)
+and occasionally detected when they are absent (false positives);
+ecologists have developed models to effectively estimate
+occupancy when data have these types of errors (Guillera-Arroita,
+Lahoz-Monfort, van Rooyen, Weeks, & Tingley, 2017; Royle &
+Link, 2006). We can use Bayesian occupancy and abundance models
+where the central tendencies of the prior distributions for the false
+negative and false-positive error rates are derived from validation of
+our machine learning models. While we would expect false-positive
+rates in occupancy models to resemble the false-positive error rates
+for the machine learning model, false-negative error rates would be a
+function of the both the machine learning model and the propensity
+for some species to avoid detection by cameras when they are present
+(Tobler, Zúñiga Hartley, Carrillo-Percastegui, & Powell, 2015).
+
+To improve model performance, use data from both Jura and Ain for training. These would give more pictures. To get even more pictures share data. 
 
 
 <!-- # Appendix: Reproducible example of species identification on camera trap images with CPU -->
