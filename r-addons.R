@@ -21,9 +21,8 @@ install.packages("exifr")
 
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
-#devtools::install_github("paleolimbot/exifr")
-#reticulate::install_miniconda()
-#reticulate::conda_create('r-reticulate')
-#devtools::install_github('eagerai/fastai')
-#fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
+reticulate::install_miniconda()
+reticulate::conda_create('r-reticulate')
+devtools::install_github('eagerai/fastai')
+fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
 ## ____________________________________________________
