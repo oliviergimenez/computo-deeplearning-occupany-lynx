@@ -15,7 +15,7 @@ local({
 ## Additional R packages needed by the user (CRAN)
 ## example: remote
 ## install.packages("anRpackage")
-#install.packages("exifr")
+install.packages("exifr")
 
 ## ____________________________________________________
 
@@ -23,6 +23,6 @@ local({
 ## Additional R packages needed by the user ()
 reticulate::install_miniconda()
 reticulate::conda_create('r-reticulate')
-remotes::install_github('eagerai/fastai')
+#remotes::install_github('eagerai/fastai')
 #fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
 ## ____________________________________________________
