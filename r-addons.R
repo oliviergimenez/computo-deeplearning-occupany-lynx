@@ -20,7 +20,7 @@ local({
 
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
-#devtools::install_github("paleolimbot/exifr")
+devtools::install_github("paleolimbot/exifr")
 #reticulate::install_miniconda()
 #reticulate::conda_create('r-reticulate')
 #devtools::install_github('eagerai/fastai')
