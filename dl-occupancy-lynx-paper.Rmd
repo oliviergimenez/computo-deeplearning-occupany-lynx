@@ -21,7 +21,7 @@ knitr::opts_chunk$set(tidy = FALSE,
                       echo = FALSE,
                       warning = FALSE,
                       message = FALSE,
-                      cache = TRUE)
+                      cache = FALSE)
 options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
@@ -1023,194 +1023,167 @@ for some species to avoid detection by cameras when they are present
 To improve model performance, use data from both Jura and Ain for training. These would give more pictures. To get even more pictures share data. 
 
 
-<!-- # Appendix: Reproducible example of species identification on camera trap images with CPU -->
+# Appendix: Reproducible example of species identification on camera trap images with CPU
 
-<!-- In this section, we go through a reproducible example of the entire deep learning workflow, from data preparation, training of a model and its validation, to the automatic labeling of pictures. We used a subsample of 467 pictures from the original dataset in the Jura county, plus 14 pictures from the original dataset in the Ain county, to allow the training of our model with CPU on a personal computer. We provide all pictures and the models fully trained with GPU from Zenodo. -->
+In this section, we go through a reproducible example of the entire deep learning workflow, including data preparation, model training, and automatic labeling of new images We used a subsample of 467 images from the original dataset in the Jura county to allow the training of our model with CPU on a personal computer. We also used 14 images from the original dataset in the Ain county to illustrate prediction. 
 
-<!-- ## Training and validation datasets -->
+## Training and validation datasets
 
-<!-- We first split the dataset of pictures in two datasets, a dataset for training, and the other one for validation.  -->
+We first split the dataset of pictures in two datasets, a dataset for training, and the other one for validation. We use the `exifr` package to extract metadata from images, get a list of images names and extract the species from these.
+```{r echo=TRUE}
+library(exifr)
+pix_folder <- 'pix/pixJura/'
+file_list <- list.files(path = pix_folder,
+                        recursive = TRUE,
+                        pattern = "*.JPG",
+                        full.names = TRUE)
+labels <-
+  read_exif(file_list) %>%
+  as_tibble() %>%
+  unnest(Keywords, keep_empty = TRUE) %>% # keep_empty = TRUE keeps pix with no labels (empty pix)
+  group_by(SourceFile) %>%
+  slice_head() %>% # when several labels in a pix, keep first only
+  ungroup() %>%
+  mutate(Keywords = as_factor(Keywords)) %>%
+  mutate(Keywords = fct_explicit_na(Keywords, "wo_tag")) %>% # when pix has no tag
+  select(SourceFile, FileName, Keywords) %>%
+  mutate(Keywords = fct_recode(Keywords,
+                               "chat" = "chat forestier",
+                               "lievre" = "lièvre",
+                               "vehicule" = "véhicule",
+                               "ni" = "Non identifié")) %>%
+  filter(!(Keywords %in% c("ni", "wo_tag")))
+```
+```{r echo=FALSE}
+labels %>%
+  count(Keywords, sort = TRUE) %>%
+  kable(caption = "Species considered, and number of pictures with these species in them.") %>% 
+  kable_styling()
+```
 
-<!-- We use the `exifr` package to extract metadata from pictures, get a list of pictures names and extract the species from these.  -->
-<!-- ```{r } -->
-<!-- library(exifr) -->
-<!-- pix_folder <- 'pix/pixJura/' -->
-<!-- file_list <- list.files(path = pix_folder,  -->
-<!--                         recursive = TRUE,  -->
-<!--                         pattern = "*.JPG",  -->
-<!--                         full.names = TRUE) -->
-<!-- labels <-  -->
-<!--   read_exif(file_list) %>% -->
-<!--   as_tibble() %>% -->
-<!--   unnest(Keywords, keep_empty = TRUE) %>% # keep_empty = TRUE keeps pix with no labels (empty pix) -->
-<!--   group_by(SourceFile) %>% -->
-<!--   slice_head() %>% # when several labels in a pix, keep first only -->
-<!--   ungroup() %>% -->
-<!--   mutate(Keywords = as_factor(Keywords)) %>% -->
-<!--   mutate(Keywords = fct_explicit_na(Keywords, "wo_tag")) %>% # when pix has no tag -->
-<!--   select(SourceFile, FileName, Keywords) %>%  -->
-<!--   mutate(Keywords = fct_recode(Keywords,  -->
-<!--                                # "chat" = "chat domestique",  -->
-<!--                                "chat" = "chat forestier", -->
-<!--                                "lievre" = "lièvre", -->
-<!--                                "vehicule" = "véhicule", -->
-<!--                                # "ecureuil" = "écureuil", -->
-<!--                                # "laporide" = "laporidés", -->
-<!--                                # "ongules" = "ongulés sauvages", -->
-<!--                                # "sciuridae" = "Sciuridae", -->
-<!--                                "ni" = "Non identifié")) %>%  -->
-<!--   filter(!(Keywords %in% c("ni", "wo_tag"))) -->
-<!-- ``` -->
-<!-- ```{r echo = TRUE} -->
-<!-- labels %>%  -->
-<!--   count(Keywords, sort = TRUE) %>%  -->
-<!-- #  print(n = Inf) %>% -->
-<!--   knitr::kable(caption = "Species considered, and number of pictures with these species in them.") -->
-<!-- ``` -->
+Then we pick 80$\%$ of the pictures for training in each category, the rest being used for validation.
+```{r echo = TRUE}
+# training dataset
+pix_train <- labels %>%
+  select(SourceFile, FileName, Keywords) %>%
+  group_by(Keywords) %>%
+  filter(between(row_number(), 1, floor(n()*80/100))) # 80% per category
+# validation dataset
+pix_valid <- labels %>%
+  group_by(Keywords) %>%
+  filter(between(row_number(), floor(n()*80/100) + 1, n()))
+```
 
-<!-- Then we pick 80$\%$ of the pictures for training in each category, the rest being used for validation. -->
-<!-- ```{r echo = TRUE} -->
-<!-- # training dataset -->
-<!-- pix_train <- labels %>%  -->
-<!--   select(SourceFile, FileName, Keywords) %>% -->
-<!--   group_by(Keywords) %>% -->
-<!--   filter(between(row_number(), 1, floor(n()*80/100))) # 80% per category -->
-<!-- # validation dataset -->
-<!-- pix_valid <- labels %>%  -->
-<!--   group_by(Keywords) %>% -->
-<!--   filter(between(row_number(), floor(n()*80/100) + 1, n())) -->
-<!-- ``` -->
+Eventually, we store these pictures in two distinct directories named `train` and `valid`.
+```{r echo=TRUE}
+# create dir train/ and copy pix there, organised by categories
+dir.create('pix/train') # create training directory
+for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels
+for (i in 1:nrow(pix_train)){
+	file.copy(as.character(pix_train$SourceFile[i]),
+	          paste0('pix/train/', as.character(pix_train$Keywords[i]))) # copy pix in corresp dir
+}
+# create dir valid/ and copy pix there, organised by categories.
+dir.create('pix/valid') # create validation dir
+for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/valid/',i)) # create dir for labels
+for (i in 1:nrow(pix_valid)){
+	file.copy(as.character(pix_valid$SourceFile[i]),
+	          paste0('pix/valid/', as.character(pix_valid$Keywords[i]))) # copy pix in corresp dir
+}
+# delete pictures in valid/ directory for which we did not train the model
+to_be_deleted <- setdiff(levels(fct_drop(pix_valid$Keywords)), levels(fct_drop(pix_train$Keywords)))
+if (!is_empty(to_be_deleted)) {
+  for (i in 1:length(to_be_deleted)){
+    unlink(paste0('pix/valid/', to_be_deleted[i]))
+  }
+}
+```
 
-<!-- Eventually, we store these pictures in two distinct directories named `train` and `valid`.  -->
-<!-- ```{r} -->
-<!-- # create dir train/ and copy pix there, organised by categories -->
-<!-- dir.create('pix/train') # create training directory -->
-<!-- for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels  -->
-<!-- for (i in 1:nrow(pix_train)){ -->
-<!-- 	file.copy(as.character(pix_train$SourceFile[i]),  -->
-<!-- 	          paste0('pix/train/', as.character(pix_train$Keywords[i]))) # copy pix in corresp dir -->
-<!-- } -->
-<!-- # create dir valid/ and copy pix there, organised by categories. -->
-<!-- dir.create('pix/valid') # create validation dir -->
-<!-- for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/valid/',i)) # create dir for labels  -->
-<!-- for (i in 1:nrow(pix_valid)){ -->
-<!-- 	file.copy(as.character(pix_valid$SourceFile[i]),  -->
-<!-- 	          paste0('pix/valid/', as.character(pix_valid$Keywords[i]))) # copy pix in corresp dir -->
-<!-- } -->
-<!-- # delete pictures in valid/ directory for which we did not train the model -->
-<!-- to_be_deleted <- setdiff(levels(fct_drop(pix_valid$Keywords)), levels(fct_drop(pix_train$Keywords))) -->
-<!-- if (!is_empty(to_be_deleted)) { -->
-<!--   for (i in 1:length(to_be_deleted)){ -->
-<!--     unlink(paste0('pix/valid/', to_be_deleted[i])) -->
-<!--   } -->
-<!-- } -->
-<!-- ``` -->
+What is the sample size of these two datasets?
+```{r echo=TRUE}
+bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
+  group_by(dataset) %>%
+  count(Keywords) %>%
+  rename(category = Keywords) %>%
+  kable(caption = "Sample size (n) for the training and validation datasets.") %>%
+  kable_styling()
+```
 
-<!-- What is the sample size of these two datasets? -->
-<!-- ```{r} -->
-<!-- bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>% -->
-<!--   group_by(dataset) %>% -->
-<!--   count(Keywords) %>%  -->
-<!--   rename(category = Keywords) %>% -->
-<!--   knitr::kable(caption = "Sample size (n) for the training and validation datasets.") -->
-<!-- ``` -->
+## Transfer learning
 
-<!-- ## Transfer learning -->
+We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images, apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
+```{r echo = TRUE}
+dls <- ImageDataLoaders_from_folder(
+  path = "pix/",
+  train = "train",
+  valid = "valid",
+  item_tfms = Resize(size = 460),
+  bs = 10,
+  batch_tfms = list(aug_transforms(size = 224,
+                                   min_scale = 0.75), # transformation
+                    Normalize_from_stats( imagenet_stats() )),
+  num_workers = 0,
+  ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
+```
 
-<!-- We proceed with transfer learning using the pictures from the Jura county (or a subsample more exactly).  -->
+Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text. 
+```{r}
+learn <- cnn_learner(dls = dls,
+                     arch = resnet18(),
+                     metrics = list(accuracy, error_rate))
+```
 
-<!-- We first load pictures, apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).  -->
-<!-- ```{r} -->
-<!-- dls <- ImageDataLoaders_from_folder( -->
-<!--   path = "pix/", -->
-<!--   train = "train", -->
-<!--   valid = "valid", -->
-<!--   item_tfms = Resize(size = 460),  -->
-<!--   bs = 10, -->
-<!--   batch_tfms = list(aug_transforms(size = 224,  -->
-<!--                                    min_scale = 0.75), # transformation -->
-<!--                     Normalize_from_stats( imagenet_stats() )), -->
-<!--   num_workers = 0, -->
-<!--   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE) -->
-<!-- ``` -->
+Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz Inter Core i9 8 cores processor and 64Go memory with CPU, and less than half an hour with machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch with CPU. Note that we save the model after each epoch for later use.
+```{r echo = TRUE}
+one_cycle <- learn %>%
+  fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE,
+                                           fname = 'model'))
+one_cycle
+```
 
-<!-- Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented below. -->
-<!-- ```{r} -->
-<!-- learn <- cnn_learner(dls = dls,  -->
-<!--                      arch = resnet18(),  -->
-<!--                      metrics = list(accuracy, error_rate)) -->
-<!-- ``` -->
+We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.
+```{r echo = TRUE}
+# see model saved at each epoch
+# list.files('pix/pix/models/')
+learn$load("model_1")
+interp <- ClassificationInterpretation_from_learner(learn)
+interp$print_classification_report()
+```
 
-<!-- Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented below. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz Inter Core i9 8 cores processor and 64Go emory with CPU, and less than half an hour with GPU. On this reduced dataset, it took a bit more than a minute per epoch with CPU. Note that we save the model after each epoch for later use. -->
-<!-- ```{r} -->
-<!-- one_cycle <- learn %>%  -->
-<!--   fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE,  -->
-<!--                                            fname = 'model')) -->
-<!-- one_cycle -->
-<!-- ``` -->
+We may extract the categories that get the most confused.
+```{r echo = TRUE}
+interp %>% most_confused()
+```
 
-<!-- We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.   -->
-<!-- ```{r} -->
-<!-- # see model saved at each epoch -->
-<!-- # list.files('pix/pix/models/') -->
-<!-- learn$load("model_1") -->
-<!-- interp <- ClassificationInterpretation_from_learner(learn) -->
-<!-- interp$print_classification_report() -->
-<!-- ``` -->
+## Transferability
 
-<!-- Four metrics are given.  -->
+In this section, we show how to use our freshly trained model to label images that were taken in another study site in the Ain county, and not used to train our model. First, we get the path to the images.
+```{r echo = TRUE}
+fls <- list.files(path = "pix/pixAin",
+                  full.names = TRUE,
+                  recursive = TRUE)
+```
 
-<!-- Precision is the ratio tp / (tp + fp) where tp is the number of true positives and fp the number of false positives. It quantifies the ability of the classifier not to label as positive a sample that is negative. The question that this metric answers is of all pix that labeled as positive, how many actually were positive? -->
-
-<!-- The recall is the ratio tp / (tp + fn) where tp is the number of true positives and fn the number of false negatives. The recall is intuitively the ability of the classifier to find all the positive samples. The question recall answers is: of all the pix that were positive, how many did we label?  -->
-
-<!-- The f1-score can be interpreted as a weighted average of the precision and recall, it reaches its best value at 1 and worst score at 0. -->
-
-<!-- The f1-score weights recall more than precision by a factor of 1, meaning that recall and precision are equally important. f1-score is 2 * (recall * precision) / (recall + precision) -->
-
-<!-- The support is the number of occurrences of each class in y_true (ground truth or correct target values). -->
-
-<!-- macro avg: Calculate metrics for each label, and find their unweighted mean. This does not take label imbalance into account. -->
-
-<!-- weighted avg: Calculate metrics for each label, and find their average weighted by support (the number of true instances for each label). This alters ‘macro’ to account for label imbalance. -->
-
-<!-- Accuracy is the most intuitive performance measure and it is simply a ratio of correctly predicted observation to the total observations, it is (tp + tn)/(tp + tn + fp + fn)  -->
-
-<!-- We may extract the categories that get the most confused. -->
-<!-- ```{r} -->
-<!-- interp %>% most_confused() -->
-<!-- ``` -->
-
-<!-- ## Prediction -->
-
-<!-- In this section, we show how to use our freshly trained model to label pictures that were taken in another study site in the Ain county.  -->
-
-<!-- First, we get the path to the pictures. -->
-<!-- ```{r} -->
-<!-- fls <- list.files(path = "pix/pixAin", -->
-<!--                   full.names = TRUE, -->
-<!--                   recursive = TRUE) -->
-<!-- ``` -->
-
-<!-- Then carry out the prediction, and compare to the truth. -->
-<!-- ```{r} -->
-<!-- predicted <- character(3) -->
-<!-- categories <- interp$vocab %>% -->
-<!--   str_replace_all("[[:punct:]]", " ") %>% -->
-<!--   str_trim() %>% -->
-<!--   str_split("   ") %>% -->
-<!--   unlist() -->
-<!-- for (i in 1:length(fls)){ -->
-<!--   result <- learn %>% predict(fls[i]) # make prediction -->
-<!--   result[[3]] %>%  -->
-<!--     stringr::str_extract("\\d+") %>% -->
-<!--     as.integer() -> index # extract relevant info -->
-<!--   predicted[i] <- categories[index + 1] # match it with categories -->
-<!-- } -->
-<!-- data.frame(truth = c("lynx", "roe deer", "wild boar"), -->
-<!--            prediction = predicted) %>% -->
-<!--   knitr::kable(caption = "Comparison of the predictions vs. ground truth.") -->
-<!-- ``` -->
+Then carry out the prediction, and compare to the truth.
+```{r echo = TRUE}
+predicted <- character(3)
+categories <- interp$vocab %>%
+  str_replace_all("[[:punct:]]", " ") %>%
+  str_trim() %>%
+  str_split("   ") %>%
+  unlist()
+for (i in 1:length(fls)){
+  result <- learn %>% predict(fls[i]) # make prediction
+  result[[3]] %>%
+    str_extract("\\d+") %>%
+    as.integer() -> index # extract relevant info
+  predicted[i] <- categories[index + 1] # match it with categories
+}
+data.frame(truth = c("lynx", "roe deer", "wild boar"),
+           prediction = predicted) %>%
+  kable(caption = "Comparison of the predictions vs. ground truth.") %>%
+  kable_styling()
+```
 
 # Session information
 
@@ -1220,6 +1193,6 @@ sessionInfo()
 
 # Acknowledgments
 
-ANR. Folks who have labeled pix if not co-authors. MBB folks. Vincent Miele for his help along the way, and being an inspiration. Ajouter vos propres remerciements. 
+This work was OG was funded by the French National Research Agency (grant ANR-16-CE02-0007). We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help with the GPU machine, colleagues from OFB and Hunting who manually labelled the images, and Vincent Miele for his help along the way, and for having inspired our work.
 
 # References
