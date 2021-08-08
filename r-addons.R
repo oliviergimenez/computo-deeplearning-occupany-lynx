@@ -15,21 +15,12 @@ local({
 ## Additional R packages needed by the user (CRAN)
 ## example: remote
 ## install.packages("anRpackage")
-#install.packages("sf")
-#install.packages("cowplot")
-#install.packages("lubridate")
-#install.packages("stringi")
-#install.packages("kableExtra")
-#install.packages("unmarked")
 
 ## ____________________________________________________
 
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
-## remotes::install_github("user/package")
 devtools::install_github("paleolimbot/exifr")
-#devtools::install_github("wilkelab/ggtext")
-#devtools::install_github("karthik/wesanderson")
 reticulate::install_miniconda()
 reticulate::conda_create('r-reticulate')
 devtools::install_github('eagerai/fastai')
