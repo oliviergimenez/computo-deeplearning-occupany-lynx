@@ -15,7 +15,7 @@ local({
 ## Additional R packages needed by the user (CRAN)
 ## example: remote
 ## install.packages("anRpackage")
-install.packages("exifr")
+#install.packages("exifr")
 
 ## ____________________________________________________
 
