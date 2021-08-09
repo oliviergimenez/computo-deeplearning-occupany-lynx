@@ -497,7 +497,7 @@ read_csv2("dat/perf_fastai.csv") %>%
 
 ## Transferability - Ain study site
 
-We evaluated transferability for our trained model by predicting species on images from the Ain study site which were not used for training. Precision was 0.77\% for lynx, and while we achieved 0.86\% recall for roe deer, our model performed poorly for chamois with 0.08\% recall (Table 3). To better understand this pattern, we display the results under the form of a confusion matrix that compares model classifications to manual classifications (Figure 2). There were a lot of false negatives for chamois, meaning that when chamois was actually present in an image, it was often classified as another species by our model. Overall, our model trained on images from the Jura study site did poorly at predicting correctly species on images from the Ain study site. This result does not come as a surprise, as generalizing classification algorithms to new environments is known to be difficult [@beery_recognition_2018]. While a computer scientist would be disappointed in these results, an ecologist will wonder whether ecological inference on the interactions between lynx and its prey is biased by these average performances, a question we address in the next section.  
+We evaluated transferability for our trained model by predicting species on images from the Ain study site which were not used for training. Precision was 77\% for lynx, and while we achieved 86\% recall for roe deer, our model performed poorly for chamois with 8\% recall (Table 3). To better understand this pattern, we display the results under the form of a confusion matrix that compares model classifications to manual classifications (Figure 2). There were a lot of false negatives for chamois, meaning that when chamois was actually present in an image, it was often classified as another species by our model. Overall, our model trained on images from the Jura study site did poorly at predicting correctly species on images from the Ain study site. This result does not come as a surprise, as generalizing classification algorithms to new environments is known to be difficult [@beery_recognition_2018]. While a computer scientist would be disappointed in these results, an ecologist will wonder whether ecological inference on the interactions between lynx and its prey is biased by these average performances, a question we address in the next section.  
 
 ```{r transf, results="asis", cache = FALSE}
 cat("
@@ -572,8 +572,6 @@ perf_prediction
 ```
 
 # Spatial co-occurrence
-
-**Expliquer qu'on compare une analyse des interactions en prenant les données Jura + Ain manually labelled, supposed to be error-free, aux données Jura + Ain automatically tagged, pour évaluer empiriquement le biais éventuel dans ecological inference.**
 
 In this section, we analysed the data we acquired from the previous section. For the sake of comparison, we considered two datasets, a dataset made of the images manually labelled for both the Jura and Ain study sites pooled together (*ground truth dataset*), and another dataset in which we pooled the images that were manually labelled for the Jura study site and the images that we automatically labelled for the Ain study site using our trained model (*classified dataset*). 
 
