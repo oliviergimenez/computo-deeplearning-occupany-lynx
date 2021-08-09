@@ -19,6 +19,7 @@ dependencies:
   - r-wesanderson
   - r-highcharter
   - r-janitor
+  - r-unmarked
 
   
   
