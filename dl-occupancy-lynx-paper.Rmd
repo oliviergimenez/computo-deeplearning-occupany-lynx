@@ -1,5 +1,5 @@
 ---
-title: "Reproducible `R` workflow integrating models in computer vision and statistical ecology: A trade-off between deep learning for species identification and inferring spatial co‐occurrence"
+title: "Trade-off between deep learning for species identification and inference about predator-prey co-occurrence: Reproducible `R` workflow integrating models in computer vision and ecological statistics"
 author: "Olivier Gimenez, Maëlis Kervellec, Jean-Baptiste Fanjul, Anna Chaine, Lucile Marescot, Christophe Duchamp"
 date: "`r Sys.Date()`"
 always_allow_html: true
