@@ -21,6 +21,7 @@ install.packages("exifr")
 
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
+remotes::install_github("rbchan/unmarked")
 reticulate::install_miniconda()
 reticulate::conda_create('r-reticulate')
 #remotes::install_github('eagerai/fastai')
