@@ -11,6 +11,7 @@ on:
 
 env: # Change this if needed
   Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
+  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build_computorticle:

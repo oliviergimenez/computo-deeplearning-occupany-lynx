@@ -16,7 +16,7 @@ local({
 ## example: remote
 ## install.packages("anRpackage")
 install.packages("exifr")
-devtools::install_github("rbchan/unmarked")
+remotes::install_github("rbchan/unmarked")
 ## ____________________________________________________
 
 ## ____________________________________________________
