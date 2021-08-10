@@ -1,6 +1,6 @@
 ---
 title: "Trade-off between deep learning for species identification and inference about predator-prey co-occurrence: Reproducible `R` workflow integrating models in computer vision and ecological statistics"
-author: "Olivier Gimenez, Maëlis Kervellec, Jean-Baptiste Fanjul, Anna Chaine, Lucile Marescot, Christophe Duchamp"
+author: "Olivier Gimenez, Maëlis Kervellec, Jean-Baptiste Fanjul, Anna Chaine, Lucile Marescot, Yoann Bollet, Christophe Duchamp"
 date: "`r Sys.Date()`"
 always_allow_html: true
 output:
@@ -432,7 +432,7 @@ species_Ain <- allpic_Ain %>%
 ```
 
 
-In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. Note that classifying empty images could be automatised with deep learning [@norouzzadeh_deep_2021; @tabak_improving_2020]. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). Labelled images for the Ain county are available from **Zenodo link** and that for the Jura county are available from <https://mycore.core-cloud.net/index.php/s/8GsYfAoyeDGzuNY>. This operation took several weeks of labor full time, which is often identified as a limitation of camera trap studies. To expedite this tedious task, computer vision with deep learning has been identified as a promising approach [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
+In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. Note that classifying empty images could be automatised with deep learning [@norouzzadeh_deep_2021; @tabak_improving_2020]. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). Labelled images for the Ain county are available from <https://mycore.core-cloud.net/index.php/s/1DHbKdQzPKuDbxl> and that for the Jura county are available from <https://mycore.core-cloud.net/index.php/s/8GsYfAoyeDGzuNY>. This operation took several weeks of labor full time, which is often identified as a limitation of camera trap studies. To expedite this tedious task, computer vision with deep learning has been identified as a promising approach [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
 
 ```{r categories, results="asis", cache = FALSE}
 cat("
@@ -1115,6 +1115,6 @@ sessionInfo()
 
 # Acknowledgments
 
-This work was partly funded by the French National Research Agency (grant ANR-16-CE02-0007). We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart, Chloé Quillard and Yoann Bollet for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way.
+This work was partly funded by the French National Research Agency (grant ANR-16-CE02-0007). We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way.
 
 # References
