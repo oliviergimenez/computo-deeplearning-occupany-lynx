@@ -353,6 +353,8 @@ Here, we showcase a reproducible `R` workflow integrating both deep learning and
 
 Despite average model classification performances, ecological inference was similar whether we analysed the ground truth dataset or the classified dataset. This result calls for further work on the trade-offs between time and resources allocated to train models with deep learning and our ability to properly address key ecological questions with biodiversity monitoring. We hope that our reproducible workflow will be useful to ecologists and applied statisticians. 
 
+All material (source of the Rmarkdown notebook and auxiliary files) is available from <https://github.com/oliviergimenez/computo-deeplearning-occupany-lynx>.
+
 # Introduction
 
 Computer vision is a field of artificial intelligence in which a machine is taught how to extract and interpret the content of an image [@NIPS2012_4824]. Computer vision relies on deep learning that allows computational models to learn from training data -- a set of manually labelled images -- and make predictions on new data -- a set of unlabelled images [@baraniuk_science_2020; @lecun_deep_2015]. With the growing availability of massive data, computer vision with deep learning is being increasingly used to perform tasks such as object detection, face recognition, action and activity recognition or human pose estimation in fields as diverse as medicine, robotics, transportation, genomics, sports and agriculture [@andina_deep_2018]. 
@@ -527,7 +529,7 @@ tt_final %>%
   mutate(observed = fct_recode(observed,
                               "human" = "humain",
                               "dog" = "chien",
-                              "deer" = "cerf",
+                              "red deer" = "cerf",
                               "fox" = "renard",
                               "wild board" = "sangliers",
                               "roe deer" = "chevreuil",
@@ -549,7 +551,7 @@ tt_final %>%
                               "badger" = "blaireaux",
                               "hunter" = "chasseur",
                               "rider" = "cavalier",
-                              "deer" = "cerf",
+                              "red deer" = "cerf",
                               "marten" = "martre",
                               "cow" = "vaches",
                               "hare" = "lievre")) -> tt_final_clean
@@ -587,7 +589,7 @@ Here, we analysed the data we acquired from the previous section. For the sake o
 
 We formatted the data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 3).
 
-```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November in years 2016 and 2017. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
+```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 library(unmarked)
@@ -926,13 +928,13 @@ Detection probabilities were indistinguishable whether we used the ground truth 
 
 We also found that occupancy probability estimates were similar whether we used the ground truth or the classified dataset (Figure 4). Roe deer was the prevalent species, but lynx and chamois were also occurring with high probability (Figure 4). 
 
-```{r figure4, fig.cap="**Figure 4**: Marginal occupancy probabilities for all three species, lynx, roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
+```{r figure4, fig.cap="**Figure 4**: Marginal occupancy probabilities for all three species, lynx, roe deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
 knitr::include_graphics("img/marginal_occ_penalized.png")
 ```
 
 Because marginal occupancy probabilities were high, probabilities of co-occurrence were also estimated high (Figure 5). Our results should be interpreted bearing in mind that co-occurrence is a necessary but not sufficient condition for actual interaction. When both preys were present, lynx was more present than when they were both absent (Figure 5). Lynx was more sensitive to the presence of roe deer than that of chamois (Figure 5). 
 
-```{r figure5, fig.cap="**Figure 5**: Lynx occupancy probability conditional on the presence or absence of its preys (roed deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
+```{r figure5, fig.cap="**Figure 5**: Lynx occupancy probability conditional on the presence or absence of its preys (roe deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
 knitr::include_graphics("img/conditional_occ_penalized.png")
 ```
 
