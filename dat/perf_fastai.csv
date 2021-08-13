@@ -1,6 +1,6 @@
 ﻿species;precision;recall
 badger;0.78;0.88
-deer;0.67;0.21
+red deer;0.67;0.21
 chamois;0.86;0.81
 cat;0.89;0.78
 roe deer;0.67;0.81

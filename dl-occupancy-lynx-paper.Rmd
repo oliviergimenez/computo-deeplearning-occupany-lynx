@@ -345,7 +345,7 @@ dat_ain_dl <- list(deer = dat_chevreuil,
 
 # Abstract
 
-Deep learning is used in several fields of science with important applications in computer vision problems. In ecology for example, there is a growing interest in deep learning for automatizing repetitive analyses on large amounts of images, such as animal species identification. 
+Deep learning is used in computer vision problems with important applications in several scientific fields. In ecology for example, there is a growing interest in deep learning for automatizing repetitive analyses on large amounts of images, such as animal species identification. 
 
 However, there are challenging issues toward the wide adoption of deep learning by the community of ecologists. First, there is a programming barrier as most algorithms are written in `Python` while most ecologists are versed in `R`. Second, recent applications of deep learning in ecology have focused on computational aspects and simple tasks without addressing the underlying ecological questions or carrying out the statistical data analysis to answer these questions. 
 
