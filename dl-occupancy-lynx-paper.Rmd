@@ -371,7 +371,8 @@ Lynx (*Lynx lynx*) went extinct in France at the end of the 19th century due to 
 
 To better understand its distribution, we need to quantify its interactions with its main preys, roe deer (*Capreolus capreolus*) and chamois (*Rupicapra rupicapra*) [@molinari-jobin_variation_2007], two ungulate species that are also hunted. To assess the relative contribution of predation and hunting, a predator-prey program was set up jointly by the French Office for Biodiversity, the Federations of Hunters from the Jura, Ain and Haute-Savoie counties and the French National Centre for Scientific Research. 
 
-Animal detections were made using a set of camera traps in the Jura mountains that were deployed in the Jura and Ain counties (see Figure 1). We divided the two study areas into grids of 2.7 $\times$ 2.7 km cells or sites hereafter [@zimmermann_optimizing_2013] in which we set two camera traps per site (Xenon white flash with passive infrared trigger mechanisms, model Capture, Ambush and Attack; Cuddeback), with `r lapply(dat_jura, nrow)$lynx` sites in the Jura study area, and `r lapply(dat_ain, nrow)$lynx` in the Ain study area that were active over the study period (from February 2016 to October 2017 for the Jura county, and from February 2017 to May 2019 for the Ain county). Camera traps were checked weekly to change memory cards, batteries and to remove fresh snow after heavy snowfall. 
+Animal detections were made using a set of camera traps in the Jura mountains that were deployed in the Jura and Ain counties (see Figure 1). We divided the two study areas into grids of 2.7 $\times$ 2.7 km cells or sites hereafter [@zimmermann_optimizing_2013] in which we set two camera traps per site (Xenon white flash with passive infrared trigger mechanisms, model Capture, Ambush and Attack; Cuddeback), with `r lapply(dat_jura, nrow)$lynx` sites in the Jura study area, and `r lapply(dat_ain, nrow)$lynx` in the Ain study area that were active over the study period (from February 2016 to October 2017 for the Jura county, and from February 2017 to May 2019 for the Ain county). The location of camera traps was chosen to maximise lynx detection. Camera traps were checked weekly to change memory cards, batteries and to remove fresh snow after heavy snowfall. 
+
 
 ```{r studysite, fig.width = 10, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
 site_jura <- st_read("shp/SIG_39/communes_site_etude_jura.shp", quiet = TRUE)
@@ -435,7 +436,8 @@ species_Ain <- allpic_Ain %>%
 ```
 
 
-In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. Note that classifying empty images could be automatised with deep learning [@norouzzadeh_deep_2021; @tabak_improving_2020]. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). Labelled images for the Ain county are available from <https://mycore.core-cloud.net/index.php/s/1DHbKdQzPKuDbxl> and that for the Jura county are available from <https://mycore.core-cloud.net/index.php/s/8GsYfAoyeDGzuNY>. This operation took several weeks of labor full time, which is often identified as a limitation of camera trap studies. To expedite this tedious task, computer vision with deep learning has been identified as a promising approach [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019]. 
+In total, `r nrow(species_Jura)` and `r nrow(species_Ain)` pictures were considered in the Jura and Ain sites respectively after manually droping empty pictures and pictures with unidentified species. Note that classifying empty images could be automatised with deep learning [@norouzzadeh_deep_2021; @tabak_improving_2020]. We identified the species present on all images by hand (see Table 1) using `digiKam` a free open-source digital photo management application (<https://www.digikam.org/>). This operation took several weeks of labor full time, which is often identified as a limitation of camera trap studies. To expedite this tedious task, computer vision with deep learning has been identified as a promising approach [@norouzzadeh_deep_2021; @tabak_machine_2019; @willi_identifying_2019].
+<!-- Labelled images for the Ain county are available from <https://mycore.core-cloud.net/index.php/s/1DHbKdQzPKuDbxl> and that for the Jura county are available from <https://mycore.core-cloud.net/index.php/s/8GsYfAoyeDGzuNY>.  -->  
 
 ```{r categories, results="asis", cache = FALSE}
 cat("
@@ -697,20 +699,20 @@ p_chamois <- data.frame(mle = p_chamois,
                         lci = plogis(mle['lp3'] - 1.96 * se["lp3"]), 
                         uci = plogis(mle['lp3'] + 1.96 * se["lp3"]))
 # Conditional probabilities of occupancy
-# Pr(lynx present | deer and chamois present)
+# Pr(lynx present | roe deer and chamois present)
 pc1 <- predict(fit,'state',species='lynx',cond=c('deer','chamois'))[1,]
-# Pr(lynx present | deer and chamois absent)
+# Pr(lynx present | roe deer and chamois absent)
 pc2 <- predict(fit,'state',species='lynx',cond=c('-deer','-chamois'))[1,]
-# Pr(lynx present | deer present and chamois absent)
+# Pr(lynx present | roe deer present and chamois absent)
 pc3 <- predict(fit,'state',species='lynx',cond=c('deer','-chamois'))[1,]
-# Pr(lynx present | deer absent and chamois present)
+# Pr(lynx present | roe deer absent and chamois present)
 pc4 <- predict(fit,'state',species='lynx',cond=c('-deer','chamois'))[1,]
 
 conditional1 <- 
-  structure(list(param = c("Pr(lynx present | deer and chamois present)", 
-                           "Pr(lynx present | deer and chamois absent)", 
-                           "Pr(lynx present | deer present and chamois absent)",
-                           "Pr(lynx present | deer absent and chamois present)"), 
+  structure(list(param = c("Pr(lynx present | roe deer and chamois present)", 
+                           "Pr(lynx present | roe deer and chamois absent)", 
+                           "Pr(lynx present | roe deer present and chamois absent)",
+                           "Pr(lynx present | roe deer absent and chamois present)"), 
                  low2.5 = as_vector(c(pc1[3], pc2[3], pc3[3], pc4[3])), 
                  est = as_vector(c(pc1[1], pc2[1], pc3[1], pc4[1])), 
                  up2.5 = as_vector(c(pc1[4], pc2[4], pc3[4], pc4[4]))), 
@@ -719,7 +721,7 @@ conditional1 <-
             class = c("data.frame", "mplus.params"))
 
 marginal1 <- 
-  structure(list(param = c("Pr(lynx present)", "Pr(deer present)", "Pr(chamois present)"), 
+  structure(list(param = c("Pr(lynx present)", "Pr(roe deer present)", "Pr(chamois present)"), 
                  low2.5 = as_vector(c(psi_lynx[3], psi_deer[3], psi_chamois[3])), 
                  est = as_vector(c(psi_lynx[1], psi_deer[1], psi_chamois[1])), 
                  up2.5 = as_vector(c(psi_lynx[4], psi_deer[4], psi_chamois[4]))), 
@@ -794,20 +796,20 @@ p_chamois <- data.frame(mle = p_chamois,
                         lci = plogis(mle['lp3'] - 1.96 * se["lp3"]), 
                         uci = plogis(mle['lp3'] + 1.96 * se["lp3"]))
 # Conditional probabilities of occupancy
-# Pr(lynx present | deer and chamois present)
+# Pr(lynx present | roe deer and chamois present)
 pc1 <- predict(fit,'state',species='lynx',cond=c('deer','chamois'))[1,]
-# Pr(lynx present | deer and chamois absent)
+# Pr(lynx present | roe deer and chamois absent)
 pc2 <- predict(fit,'state',species='lynx',cond=c('-deer','-chamois'))[1,]
-# Pr(lynx present | deer present and chamois absent)
+# Pr(lynx present | roe deer present and chamois absent)
 pc3 <- predict(fit,'state',species='lynx',cond=c('deer','-chamois'))[1,]
-# Pr(lynx present | deer absent and chamois present)
+# Pr(lynx present | roe deer absent and chamois present)
 pc4 <- predict(fit,'state',species='lynx',cond=c('-deer','chamois'))[1,]
 
 conditional2 <- 
-  structure(list(param = c("Pr(lynx present | deer and chamois present)", 
-                           "Pr(lynx present | deer and chamois absent)", 
-                           "Pr(lynx present | deer present and chamois absent)",
-                           "Pr(lynx present | deer absent and chamois present)"), 
+  structure(list(param = c("Pr(lynx present | roe deer and chamois present)", 
+                           "Pr(lynx present | roe deer and chamois absent)", 
+                           "Pr(lynx present | roe deer present and chamois absent)",
+                           "Pr(lynx present | roe deer absent and chamois present)"), 
                  low2.5 = as_vector(c(pc1[3], pc2[3], pc3[3], pc4[3])), 
                  est = as_vector(c(pc1[1], pc2[1], pc3[1], pc4[1])), 
                  up2.5 = as_vector(c(pc1[4], pc2[4], pc3[4], pc4[4]))), 
@@ -816,7 +818,7 @@ conditional2 <-
             class = c("data.frame", "mplus.params"))
 
 marginal2 <- 
-  structure(list(param = c("Pr(lynx present)", "Pr(deer present)", "Pr(chamois present)"), 
+  structure(list(param = c("Pr(lynx present)", "Pr(roe deer present)", "Pr(chamois present)"), 
                  low2.5 = as_vector(c(psi_lynx[3], psi_deer[3], psi_chamois[3])), 
                  est = as_vector(c(psi_lynx[1], psi_deer[1], psi_chamois[1])), 
                  up2.5 = as_vector(c(psi_lynx[4], psi_deer[4], psi_chamois[4]))), 
@@ -828,24 +830,24 @@ marginal2 <-
 df <- rbind(conditional1, conditional2)
 df$model <- rep(c('ground truth dataset', 'classified dataset'), c(nrow(conditional1), nrow(conditional2)))
 df$param_f <- factor(df$param, 
-                     rev(c("Pr(lynx present | deer and chamois present)", 
-                           "Pr(lynx present | deer and chamois absent)", 
-                           "Pr(lynx present | deer present and chamois absent)",
-                           "Pr(lynx present | deer absent and chamois present)")),
-                     rev(c("Pr(lynx present | deer and chamois present)", 
-                           "Pr(lynx present | deer and chamois absent)", 
-                           "Pr(lynx present | deer present and chamois absent)",
-                           "Pr(lynx present | deer absent and chamois present)")))
+                     rev(c("Pr(lynx present | roe deer and chamois present)", 
+                           "Pr(lynx present | roe deer and chamois absent)", 
+                           "Pr(lynx present | roe deer present and chamois absent)",
+                           "Pr(lynx present | roe deer absent and chamois present)")),
+                     rev(c("Pr(lynx present | roe deer and chamois present)", 
+                           "Pr(lynx present | roe deer and chamois absent)", 
+                           "Pr(lynx present | roe deer present and chamois absent)",
+                           "Pr(lynx present | roe deer absent and chamois present)")))
 
 labels <- c(
-  "Pr(lynx present | deer and chamois present)" = "<img src='img/light_lcc.jpg'
-    width='350' /><br>*Pr(lynx present | deer and chamois present)*",
-  "Pr(lynx present | deer and chamois absent)" = "<img src='img/light_lnotcnotc.jpg'
-    width='350' /><br>*Pr(lynx present | deer and chamois absent)*",
-  "Pr(lynx present | deer present and chamois absent)" = "<img src='img/light_lcnotc.jpg'
-    width='350' /><br>*Pr(lynx present | deer present and chamois absent)*",
-  "Pr(lynx present | deer absent and chamois present)" = "<img src='img/light_lnotcc.jpg'
-    width='350' /><br>*Pr(lynx present | deer absent and chamois present)*"
+  "Pr(lynx present | roe deer and chamois present)" = "<img src='img/light_lcc.jpg'
+    width='350' /><br>*Pr(lynx present | roe deer and chamois present)*",
+  "Pr(lynx present | roe deer and chamois absent)" = "<img src='img/light_lnotcnotc.jpg'
+    width='350' /><br>*Pr(lynx present | roe deer and chamois absent)*",
+  "Pr(lynx present | roe deer present and chamois absent)" = "<img src='img/light_lcnotc.jpg'
+    width='350' /><br>*Pr(lynx present | roe deer present and chamois absent)*",
+  "Pr(lynx present | roe deer absent and chamois present)" = "<img src='img/light_lnotcc.jpg'
+    width='350' /><br>*Pr(lynx present | roe deer absent and chamois present)*"
 )
 
 df %>%
@@ -874,14 +876,14 @@ df %>%
 df <- rbind(marginal1, marginal2)
 df$model <- rep(c('ground truth dataset', 'classified dataset'), c(nrow(marginal1), nrow(marginal2)))
 df$param_f <- factor(df$param, 
-                     rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')),
-                     rev(c('Pr(lynx present)', 'Pr(deer present)', 'Pr(chamois present)')))
+                     rev(c('Pr(lynx present)', 'Pr(roe deer present)', 'Pr(chamois present)')),
+                     rev(c('Pr(lynx present)', 'Pr(roe deer present)', 'Pr(chamois present)')))
 
 labels <- c(
   "Pr(lynx present)" = "<img src='img/lynx.JPG'
     width='200' /><br>*Pr(lynx present)*",
-  "Pr(deer present)" = "<img src='img/deer.JPG'
-    width='200' /><br>*Pr(deer present)*",
+  "Pr(roe deer present)" = "<img src='img/deer.JPG'
+    width='200' /><br>*Pr(roe deer present)*",
   "Pr(chamois present)" = "<img src='img/chamois.JPG'
     width='200' /><br>*Pr(chamois present)*"
 )
@@ -1118,6 +1120,6 @@ sessionInfo()
 
 # Acknowledgments
 
-This work was partly funded by the French National Research Agency (grant ANR-16-CE02-0007). We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way.
+We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way. We also thank the staff of the Federations of Hunters from the Jura and Ain counties, hunters who helped to find locations for camera traps and volunteers who contributed in collecting data. Last, we thank Auvergne-Rhône-Alpes Region, Ain and Jura departmental Councils, The French National Federation of Hunters, French Environmental Ministry based in Auvergne-Rhone-Alpes and Bourgogne Franche-Comté Region and the French Office for Biodiversity for funding the Lynx Predator Prey Program. This work was also partly funded by the French National Research Agency (grant ANR-16-CE02-0007). 
 
 # References
