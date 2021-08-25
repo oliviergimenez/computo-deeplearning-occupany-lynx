@@ -4,6 +4,7 @@ author: "O. Gimenez, M. Kervellec, J.-B. Fanjul, A. Chaine, L. Marescot, Y. Boll
 date: "`r Sys.Date()`"
 output:
   pdf_document:
+    keep_tex: true
 #    toc: yes
 #    toc_depth: '2'
 #  html_document:
