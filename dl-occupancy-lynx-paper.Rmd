@@ -27,7 +27,7 @@ set.seed(2022) # because 2019, 2020 and 2021 were not great
 # https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
 #list.of.packages <- c("unmarked")
 #new.packages <- list.of.packages[!(list.of.packages %in% #installed.packages()[,"Package"])]
-#if(length(new.packages)) devtools::install_github("rbchan/unmarked")
+#if(length(new.packages)) 
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
 library(sf)
@@ -581,13 +581,10 @@ To better understand this pattern, we display the results under the form of a co
 
 ```{r figure2, fig.cap="**Figure 2**: Confusion matrix comparing automatic to manual species classifications. Species that were predicted by our model are in columns, and species that are actually in the images are in rows."}
 perf_prediction <- hchart(dout, label = TRUE) %>%
-    hc_yAxis(title = list(text = 'Actual'),
-             labels = list(format = "{value} ({this.percentage}%)")) %>%
+    hc_yAxis(title = list(text = 'Actual')) %>%
     hc_xAxis(title = list(text = 'Predicted'),
              labels = list(rotation = -90)) 
 perf_prediction
-
-labels = list()
 ```
 
 Overall, our model trained on images from the Jura study site did poorly at correctly predicting species on images from the Ain study site. This result does not come as a surprise, as generalizing classification algorithms to new environments is known to be difficult [@beery_recognition_2018]. While a computer scientist might be disappointed in these results, an ecologist would probably wonder whether ecological inference about the co-occurrence between lynx and its prey is biased by these average performances, a question we address in the next section.  
@@ -601,6 +598,9 @@ We formatted the data by generating monthly detection histories, that is a seque
 ```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
+my_packages <- c("unmarked")
+not_installed <- my_packages[!(my_packages %in% installed.packages()[,"Package"])]
+if(length(not_installed)) devtools::install_github("rbchan/unmarked")
 library(unmarked)
 # Format the data as required for package unmarked
 lynx <- as.matrix(rbind(dat_ain$lynx[,-1], dat_jura$lynx[,-1]))
