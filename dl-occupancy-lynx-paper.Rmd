@@ -933,5 +933,113 @@ Detection probabilities were indistinguishable whether we used the ground truth 
 
 We also found that occupancy probability estimates were similar whether we used the ground truth or the classified dataset (Figure 4). Roe deer was the prevalent species, but lynx and chamois were also occurring with high probability (Figure 4). 
 
+```{r figure4, fig.cap="**Figure 4**: Marginal occupancy probabilities for all three species, lynx, roe deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
+knitr::include_graphics("img/marginal_occ_penalized.png")
+```
+
+Because marginal occupancy probabilities were high, probabilities of co-occurrence were also estimated high (Figure 5). Our results should be interpreted bearing in mind that co-occurrence is a necessary but not sufficient condition for actual interaction. When both preys were present, lynx was more present than when they were both absent (Figure 5). Lynx was more sensitive to the presence of roe deer than that of chamois (Figure 5). 
+
+```{r figure5, fig.cap="**Figure 5**: Lynx occupancy probability conditional on the presence or absence of its preys (roe deer and chamois). Parameter estimates are from a multispecies occupancy model using either the ground truth dataset (in red) or the classified dataset (in blue-grey)."}
+knitr::include_graphics("img/conditional_occ_penalized.png")
+```
+
+# Discussion
+
+In this paper, we aimed at illustrating a reproducible workflow for studying the structure of an animal community and species spatial co-occurrence (*why*) using images acquired from camera traps and automatically labelled with deep learning (*what*) which we analysed with statistical occupancy models accounting for imperfect species detection (*why*). Overall, we found that, even though model transferability could be improved, inference about the potential interactions between lynx and its preys was similar whether we analysed the ground truth data or classified data. 
+
+This result calls for further work on the trade-offs between time and resources allocated to train models with deep learning and our ability to correctly answer key ecological questions with camera-trap surveys. In other words, while a computer scientist might be keen on spending time training models to achieve top performances, an ecologist would rather rely on a model showing average performances and use this time to proceed with statistical analyses if, of course, errors in computer-annotated images do not make ecological inference flawed. The right balance may be found with collaborative projects in which scientists from artificial intelligence, statistics and ecology agree on a common objective, and identify research questions that can pick the interest of all parties. 
+
+Our demonstration remains however empirical, and we encourage others to try and replicate our results. We also see two avenues of research that could benefit the integration of deep learning and ecological statistics. First, a simulation study could be conducted to evaluate bias and precision in ecological parameter estimators with regard to errors in image annotation by computers. The outcome of this exercise could be, for example, guidelines informing on the confidence an investigator may place in ecological inference as a function of the amount of false negatives and false positives. Second, annotation errors could be accomodated directly in statistical models. For example, single-species occupancy models account for false negatives when a species is not detected by the camera at a site where it is present, as well as false positives when a species is detected at a site where it is not present due to species misidentification by the observer [@miller2011]. Pending a careful distinction between ecological vs. computer-generated false negatives and false positives, error rates could be added to multispecies occupancy models [@chambert2018] and informed by recall and precision metrics obtained during model training [@tabak_improving_2020].
+
+With regard to the case study, our results should be seen only as preliminary. First, we aim at quantifying the relative contribution of biotic (lynx predation on chamois and roe deer) and abiotic (habitat quality) processes to the composition and dynamic of this ecological community. Second, to benefit future camera trap studies of lynx in the Jura mountains, we plan to train a model again using manually annotated images from both the Jura and the Ain study sites. These perspectives are the object of ongoing work. 
+
+With the rapid advances in technologies for biodiversity monitoring [@lahoz-monfort_comprehensive_2021], the possibility of analysing large amounts of images makes deep learning appealing to ecologists. We hope that our proposal of a reproducible `R` workflow for deep learning and statistical ecology will encourage further studies in the integration of these disciplines, and contribute to the adoption of computer vision by ecologists.
+
+# Appendix: Reproducible example of species identification on camera trap images with CPU
+
+In this section, we go through a reproducible example of the entire deep learning workflow, including data preparation, model training, and automatic labeling of new images. We used a subsample of 467 images from the original dataset in the Jura county to allow the training of our model with CPU on a personal computer. We also used 14 images from the original dataset in the Ain county to illustrate prediction.
+
+## Training and validation datasets
+
+We first split the dataset of Jura images in two datasets, a dataset for training, and the other one for validation. We use the `exifr` package to extract metadata from images, get a list of images names and extract the species from these.
+```{r echo=TRUE}
+library(exifr)
+pix_folder <- 'pix/pixJura/'
+file_list <- list.files(path = pix_folder,
+                        recursive = TRUE,
+                        pattern = "*.jpg",
+                        full.names = TRUE)
+labels <-
+  read_exif(file_list) %>%
+  as_tibble() %>%
+  unnest(Keywords, keep_empty = TRUE) %>% # keep_empty = TRUE keeps pix with no labels (empty pix)
+  group_by(SourceFile) %>%
+  slice_head() %>% # when several labels in a pix, keep first only
+  ungroup() %>%
+  mutate(Keywords = as_factor(Keywords)) %>%
+  mutate(Keywords = fct_explicit_na(Keywords, "wo_tag")) %>% # when pix has no tag
+  select(SourceFile, FileName, Keywords) %>%
+  mutate(Keywords = fct_recode(Keywords,
+                               "chat" = "chat forestier",
+                               "lievre" = "lièvre",
+                               "vehicule" = "véhicule",
+                               "ni" = "Non identifié")) %>%
+  filter(!(Keywords %in% c("ni", "wo_tag")))
+```
+```{r echo=FALSE}
+labels %>%
+  count(Keywords, sort = TRUE) %>%
+  kable(caption = "Species considered, and number of images with these species in them.") %>%
+  kable_styling()
+```
+
+Then we pick 80$\%$ of the images for training in each category, the rest being used for validation.
+```{r echo = TRUE}
+# training dataset
+pix_train <- labels %>%
+  select(SourceFile, FileName, Keywords) %>%
+  group_by(Keywords) %>%
+  filter(between(row_number(), 1, floor(n()*80/100))) # 80% per category
+# validation dataset
+pix_valid <- labels %>%
+  group_by(Keywords) %>%
+  filter(between(row_number(), floor(n()*80/100) + 1, n()))
+```
+
+Eventually, we store these images in two distinct directories named `train` and `valid`.
+```{r echo=TRUE}
+# create dir train/ and copy pix there, organised by categories
+dir.create('pix/train') # create training directory
+for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels
+for (i in 1:nrow(pix_train)){
+	file.copy(as.character(pix_train$SourceFile[i]),
+	          paste0('pix/train/', as.character(pix_train$Keywords[i]))) # copy pix in corresp dir
+}
+# create dir valid/ and copy pix there, organised by categories.
+dir.create('pix/valid') # create validation dir
+for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/valid/',i)) # create dir for labels
+for (i in 1:nrow(pix_valid)){
+	file.copy(as.character(pix_valid$SourceFile[i]),
+	          paste0('pix/valid/', as.character(pix_valid$Keywords[i]))) # copy pix in corresp dir
+}
+# delete pictures in valid/ directory for which we did not train the model
+to_be_deleted <- setdiff(levels(fct_drop(pix_valid$Keywords)), levels(fct_drop(pix_train$Keywords)))
+if (!is_empty(to_be_deleted)) {
+  for (i in 1:length(to_be_deleted)){
+    unlink(paste0('pix/valid/', to_be_deleted[i]))
+  }
+}
+```
+
+What is the sample size of these two datasets?
+```{r echo=TRUE}
+bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
+  group_by(dataset) %>%
+  count(Keywords) %>%
+  rename(category = Keywords) %>%
+  kable(caption = "Sample size (n) for the training and validation datasets.") %>%
+  kable_styling()
+```
+
 
 # References
