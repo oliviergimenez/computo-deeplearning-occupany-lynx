@@ -1,5 +1,5 @@
 ---
-title: "Trade-off between deep learning for species identification and inference about predator-prey co-occurrence: Reproducible `R` workflow integrating models in computer vision and ecological statistics"
+title: "Do  deep learning for species identification to infer predator-prey co-occurrence: Reproducible `R` workflow integrating models in computer vision and ecological statistics"
 author: "Olivier Gimenez, Maëlis Kervellec, Jean-Baptiste Fanjul, Anna Chaine, Lucile Marescot, Yoann Bollet, Christophe Duchamp"
 date: "`r Sys.Date()`"
 always_allow_html: true
@@ -25,10 +25,9 @@ knitr::opts_chunk$set(tidy = FALSE,
 options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 # https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
-list.of.packages <- c("devtools","tidyverse","sf","cowplot","lubridate","stringi","kableExtra","wesanderson","ggtext","fastai","highcharter","janitor")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-devtools::install_github("rbchan/unmarked")
+#list.of.packages <- c("unmarked")
+#new.packages <- list.of.packages[!(list.of.packages %in% #installed.packages()[,"Package"])]
+#if(length(new.packages)) devtools::install_github("rbchan/unmarked")
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
 library(sf)
