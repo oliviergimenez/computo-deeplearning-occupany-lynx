@@ -591,5 +591,52 @@ Here, we analysed the data we acquired from the previous section. For the sake o
 
 We formatted the data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 3).
 
+```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
+## Occupancy analyses
+## First with manually tagged data, then with automaticaly tagged data
+#my_packages <- c("unmarked")
+#not_installed <- my_packages[!(my_packages %in% installed.packages()[,"Package"])]
+#if(length(not_installed)) devtools::install_github("rbchan/unmarked")
+library(unmarked)
+# Format the data as required for package unmarked
+lynx <- as.matrix(rbind(dat_ain$lynx[,-1], dat_jura$lynx[,-1]))
+deer <- as.matrix(rbind(dat_ain$deer[,-1], dat_jura$deer[,-1]))
+chamois <- as.matrix(rbind(dat_ain$chamois[,-1], dat_jura$chamois[,-1]))
+fox <- as.matrix(rbind(dat_ain$fox[,-1], dat_jura$fox[,-1]))
+cat <- as.matrix(rbind(dat_ain$cat[,-1], dat_jura$cat[,-1]))
+y <- list("lynx" = lynx, "roe deer" = deer, "chamois" = chamois)
+data <- unmarkedFrameOccuMulti(y=y)
+# summary(data)
+
+x <- data
+y1 <- getY(x)
+ym <- max(y1, na.rm=TRUE)
+M <- nrow(y1)
+J <- ncol(y1)
+S <- length(x@ylist)
+y1 <- as.data.frame(do.call(rbind,x@ylist))
+colnames(y1) <- 1:J
+y1$site <- rep(1:M,S)
+y1$species <- as.factor(rep(names(x@ylist),each=M))
+y1 %>%
+  pivot_longer(cols = 1:9,
+               names_to = "time",
+               values_to = "value") %>%
+  mutate(site = as_factor(site),
+         time = as_factor(time),
+         value = as_factor(value)) %>%
+  ggplot() +
+  aes(x = time, y = site, fill = value) + 
+  geom_tile() +
+  scale_y_discrete(name = 'Sites',
+                   labels = rownames(x@ylist$lynx)) + 
+  facet_wrap(vars(species), nrow = 1) +
+  scale_fill_manual(values = c( "gray90","black"),
+                    labels = c("non-detection", "detection"))+
+  labs(x = 'Sampling occasions', fill = "")
+
+y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
+data <- unmarkedFrameOccuMulti(y=y)
+```
 
 # References
