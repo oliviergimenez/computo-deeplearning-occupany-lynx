@@ -22,9 +22,9 @@ remotes::install_github("rbchan/unmarked")
 ## ____________________________________________________
 ## Additional R packages needed by the user ()
 #devtools::install_github("rbchan/unmarked")
-reticulate::install_miniconda()
-reticulate::conda_create('r-reticulate')
-remotes::install_github('eagerai/fastai')
+#reticulate::install_miniconda()
+#reticulate::conda_create('r-reticulate')
+##remotes::install_github('eagerai/fastai')
 #install.packages("fastai")
-fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
+#fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
 ## ____________________________________________________
