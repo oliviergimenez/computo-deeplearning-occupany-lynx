@@ -575,12 +575,29 @@ data.frame(precision = round(precision,2),
 
 To better understand this pattern, we display the results under the form of a confusion matrix that compares model classifications to manual classifications (Figure 2). There were a lot of false negatives for chamois, meaning that when a chamois was present in an image, it was often classified as another species by our model. 
 
-```{r figure2, fig.cap="**Figure 2**: Confusion matrix comparing automatic to manual species classifications. Species that were predicted by our model are in columns, and species that are actually in the images are in rows."}
-perf_prediction <- hchart(dout, label = TRUE) %>%
-    hc_yAxis(title = list(text = 'Actual')) %>%
-    hc_xAxis(title = list(text = 'Predicted'),
-             labels = list(rotation = -90)) 
-perf_prediction
+```{r figure2, fig.cap="**Figure 2**: Confusion matrix comparing automatic to manual species classifications. Species that were predicted by our model are in rows, and species that are actually in the images are in columns. Column and row percentages are also provided at the bottom and right side of each cells respectively. An example of column percentage is as follows: of all pictures for which we predict a wild boar, 94% actually contained a wild boar and the remaining 6% were made of badger (2.1%), cat (0.6%), chamois (0.4%), cow (0.6%), dog (0.6%), human (0.2%) and roe deer (1.6%). An example of row percentage is as follows: of all pictures in which we have badgers, we predict 70.7% of them to be badgers and the remaining 29.3% being cat (2.3%), chamois (3.5%), dog (0.7%), fox (12.7%), hare (4%), human (0.9%), lynx (0.2%), marten (3.3%) and wild boar (1.9%)."}
+#perf_prediction <- hchart(dout, label = TRUE) %>%
+#    hc_yAxis(title = list(text = 'Actual')) %>%
+#    hc_xAxis(title = list(text = 'Predicted'),
+#             labels = list(rotation = -90)) 
+#perf_prediction
+d_binomial <- tibble('Actual' = tt_final_clean$observed,
+                     'Predicted' = tt_final_clean$predicted)
+basic_table <- table(d_binomial)
+cfm <- as_tibble(basic_table)
+cvms::plot_confusion_matrix(cfm, 
+                            target_col = "Actual", 
+                            prediction_col = "Predicted",
+                            counts_col = "n", 
+                            add_normalized = FALSE,
+                            add_col_percentages = TRUE,
+                            add_row_percentages = TRUE,
+                            rm_zero_text = FALSE,
+                            rotate_y_text = FALSE,
+                            place_x_axis_above = FALSE) +
+  labs(x = "Actual", y = "Predicted") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.text.y = element_text(vjust = 0.5, hjust = 1))
 ```
 
 Overall, our model trained on images from the Jura study site did poorly at correctly predicting species on images from the Ain study site. This result does not come as a surprise, as generalizing classification algorithms to new environments is known to be difficult [@beery_recognition_2018]. While a computer scientist might be disappointed in these results, an ecologist would probably wonder whether ecological inference about the co-occurrence between lynx and its prey is biased by these average performances, a question we address in the next section.  
@@ -639,13 +656,18 @@ y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
 data <- unmarkedFrameOccuMulti(y=y)
 ```
 
-To quantify spatial co-occurrence betwen lynx and its preys, we used a multispecies occupancy modeling approach [@Rota2016; @clipp2021] using the `R` package `unmarked` [@unmarkedFiske]. The multispecies occupancy model assumes that observations $y_{sit}$, conditional on $Z_{si}$ the latent occupancy state of species $s$ at site $i$ are drawn from Bernoulli random variables $Y_{sit} | Z_{si} \sim \mbox{Bernoulli}(Z_{si}p_{sit})$ where $p_{sit}$ is the detection probability of species $s$ at site $i$ and sampling occasion $t$. Detection probabilities can be modeled as a function of site and/or sampling covariates, or the presence/absence of other species, but for the sake of illustration, we will make them only species-specific here. 
+To quantify spatial co-occurrence betwen lynx and its preys, we used a multispecies occupancy modeling approach [@Rota2016] using the `R` package `unmarked` [@unmarkedFiske]. The multispecies occupancy model assumes that observations $y_{sit}$, conditional on $Z_{si}$ the latent occupancy state of species $s$ at site $i$ are drawn from Bernoulli random variables $Y_{sit} | Z_{si} \sim \mbox{Bernoulli}(Z_{si}p_{sit})$ where $p_{sit}$ is the detection probability of species $s$ at site $i$ and sampling occasion $t$. Detection probabilities can be modeled as a function of site and/or sampling covariates, or the presence/absence of other species, but for the sake of illustration, we will make them only species-specific here. 
 
 The latent occupancy states are assumed to be distributed as multivariate Bernoulli random variables [@dai_multivariate_2013]. Let us consider 2 species, species 1 and 2, then $Z_i = (Z_{i1}, Z_{i2}) \sim \mbox{multivariate Bernoulli}(\psi_{11}, \psi_{10}, \psi_{01}, \psi_{00})$ where $\psi_{11}$ is the probability that a site is occupied by both species 1 and 2, $\psi_{10}$ the probability that a site is occupied by species 1 but not 2, $\psi_{01}$ the probability that a site is occupied by species 2 but not 1, and $\psi_{00}$ the probability a site is occupied by none of them. Note that we considered species-specific only occupancy probabilities but these could be modeled as site-specific covariates. Marginal occupancy probabilities are obtained as $\Pr(Z_{i1}=1) = \psi_{11} + \psi_{10}$ and $\Pr(Z_{i2}=1) = \psi_{11} + \psi_{01}$. With this model, we may also infer co-occurrence by calculating conditional probabilities such as for example the probability of a site being occupied by species 2 conditional of species 1 with $\Pr(Z_{i2} = 1| Z_{i1} = 1) = \displaystyle{\frac{\psi_{11}}{\psi_{11}+\psi_{10}}}$. 
+
+Despite its appeal and increasing use in ecology, multispecies occupancy models can be difficult to fit to real-world data in practice. First, these models are data-hungry and regularization methods [@clipp2021] are needed to avoid occupancy probabilities to be estimated at the boundary of the parameter space or with large uncertainty. Second, and this is true for any joint species distribution models, these models quickly become very complex with many parameters to be estimated when the number of species increases and co-occurrence is allowed between all species. Here, ecological expertise should be used to consider only meaningful species interactions and apply parsimony when parameterizing models. 
+
+We now turn to the results obtained from a model with five species namely lynx, chamois, roe deer, fox and cat and co-occurrence allowed between lynx and chamois and roe deer only. 
 
 ```{r include = FALSE, eval = TRUE}
 set.seed(2022)
 kk <- 10
+# y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
 # f1, f2, f3, f4, f5, f12, f13, f14, f15, f23, f24, f25, f34, f35, f45, ...
 occFormulas <- c('~1','~1','~1','~1','~1','~1','~1','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0','~0') 
 detFormulas <- c('~1','~1','~1','~1','~1')
@@ -950,13 +972,15 @@ knitr::include_graphics("img/conditional_occ_penalized.png")
 
 # Discussion
 
-In this paper, we aimed at illustrating a reproducible workflow for studying the structure of an animal community and species spatial co-occurrence (*why*) using images acquired from camera traps and automatically labelled with deep learning (*what*) which we analysed with statistical occupancy models accounting for imperfect species detection (*why*). Overall, we found that, even though model transferability could be improved, inference about the co-occurrence of lynx and its preys was similar whether we analysed the ground truth data or classified data. 
+In this paper, we aimed at illustrating a reproducible workflow for studying the structure of an animal community and species spatial co-occurrence (*why*) using images acquired from camera traps and automatically labelled with deep learning (*what*) which we analysed with statistical occupancy models accounting for imperfect species detection (*how*). Overall, we found that, even though model transferability could be improved, inference about the co-occurrence of lynx and its preys was similar whether we analysed the ground truth data or classified data. 
 
 This result calls for further work on the trade-offs between time and resources allocated to train models with deep learning and our ability to correctly answer key ecological questions with camera-trap surveys. In other words, while a computer scientist might be keen on spending time training models to achieve top performances, an ecologist would rather rely on a model showing average performances and use this time to proceed with statistical analyses if, of course, errors in computer-annotated images do not make ecological inference flawed. The right balance may be found with collaborative projects in which scientists from artificial intelligence, statistics and ecology agree on a common objective, and identify research questions that can pick the interest of all parties. 
 
 Our demonstration remains however empirical, and we encourage others to try and replicate our results. In that spirit, we praise previous work on plants which used deep learning to produce occurrence data and tested the sensitivity of species distribution models to image classification errors [@botella2018]. We also see two avenues of research that could benefit the integration of deep learning and ecological statistics. First, a simulation study could be conducted to evaluate bias and precision in ecological parameter estimators with regard to errors in image annotation by computers. The outcome of this exercise could be, for example, guidelines informing on the confidence an investigator may place in ecological inference as a function of the amount of false negatives and false positives. Second, annotation errors could be accomodated directly in statistical models. For example, single-species occupancy models account for false negatives when a species is not detected by the camera at a site where it is present, as well as false positives when a species is detected at a site where it is not present due to species misidentification by the observer [@miller2011]. Pending a careful distinction between ecological vs. computer-generated false negatives and false positives, error rates could be added to multispecies occupancy models [@chambert2018] and informed by recall and precision metrics obtained during model training [@tabak_improving_2020].
 
-With regard to the case study, our results should be seen only as preliminary. First, we aim at quantifying the relative contribution of biotic (lynx predation on chamois and roe deer) and abiotic (habitat quality) processes to the composition and dynamic of this ecological community. Second, to benefit future camera trap studies of lynx in the Jura mountains, we plan to train a model again using manually annotated images from both the Jura and the Ain study sites. These perspectives are the object of ongoing work. 
+When it comes to the case study, our results should be discussed with regard to the sensitivity of co-occurrence estimates to errors in automatic species classification. In particular, we expected that confusions between the two prey species might artificially increase the estimated probability of co-occurrence with lynx. This was illustrated by $\Pr(\mbox{lynx present} | \mbox{roe deer present and chamois absent})$ (resp. $\Pr(\mbox{lynx present} | \mbox{roe deer absent and chamois present})$) being estimated higher (resp. lower) with the classified than the ground truth dataset (Figure 5). This pattern could be explained by chamois being often classified as (and confused with) roe deer (Figure 2). 
+
+Our results are only preliminary and we see several perspectives to our work. First, we focused our analysis on lynx and its main prey, while other species should be included to get a better understanding of the community structure. For example, both lynx and fox prey on small rodents and birds and a model including co-occurrence between these two predators showed better support by the data (AIC was 1544 when co-occurrence was included vs. 1557 when it was not). Second, we aim at quantifying the relative contribution of biotic (lynx predation on chamois and roe deer) and abiotic (habitat quality) processes to the composition and dynamic of this ecological community. Third, to benefit future camera trap studies of lynx in the Jura mountains, we plan to train a model again using manually annotated images from both the Jura and the Ain study sites. These perspectives are the object of ongoing work. 
 
 With the rapid advances in technologies for biodiversity monitoring [@lahoz-monfort_comprehensive_2021], the possibility of analysing large amounts of images makes deep learning appealing to ecologists. We hope that our proposal of a reproducible `R` workflow for deep learning and statistical ecology will encourage further studies in the integration of these disciplines, and contribute to the adoption of computer vision by ecologists.
 
