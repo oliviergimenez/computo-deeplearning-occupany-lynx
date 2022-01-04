@@ -18,7 +18,6 @@ jobs:
   build_computorticle:
     name: Build Computo article with Rmarkdown
     runs-on: "macos-latest"
-    name: (fastai ${{ matrix.config.fastai }})
     defaults:
       run:
         shell: bash -l {0}
