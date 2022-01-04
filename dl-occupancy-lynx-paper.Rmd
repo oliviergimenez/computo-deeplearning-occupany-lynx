@@ -36,7 +36,7 @@ library(kableExtra)
 
 # read data
 df <- read_csv('adult_sample/adult.csv')
-
+# again
 dep_var <- 'salary'
 cat_names <- c('workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race')
 cont_names <- c('age', 'fnlwgt', 'education-num')
