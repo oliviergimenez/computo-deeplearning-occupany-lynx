@@ -12,11 +12,13 @@ on:
 env: # Change this if needed
   Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
   GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        CRAN: ${{ matrix.config.cran }}
 
 jobs:
   build_computorticle:
     name: Build Computo article with Rmarkdown
     runs-on: "macos-latest"
+    name: (fastai ${{ matrix.config.fastai }})
     defaults:
       run:
         shell: bash -l {0}
@@ -44,7 +46,19 @@ jobs:
 
       - name: Setup pandoc for Rmarkdown
         uses: r-lib/actions/setup-pandoc@v1 
-
+        
+        
+      - name: Install dependencies if Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install libxml2-dev
+          
+      - name: Install Linux
+        run: |
+          Rscript -e "install.packages('remotes')"
+          Rscript -e "remotes::install_deps(dependencies =  TRUE)"
+          Rscript -e "remotes::install_cran('rcmdcheck')"
+          
       - name: Install Python
         run: |
           Rscript -e "install.packages('reticulate')"
