@@ -45,6 +45,16 @@ jobs:
       - name: Setup pandoc for Rmarkdown
         uses: r-lib/actions/setup-pandoc@v1 
 
+      - name: Install Python
+        run: |
+          Rscript -e "install.packages('reticulate')"
+          Rscript -e "try(reticulate::install_miniconda())"
+          Rscript -e "reticulate::conda_create('r-reticulate', python_version = '3.9')"
+      - name: Install fastai
+        run: |
+          Rscript -e "remotes::install_local()"
+          Rscript -e "fastai::install_fastai()"
+
       - name: Install additional R dependencies
         run: | 
           export LANG=en_US.UTF-8
