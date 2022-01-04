@@ -12,7 +12,6 @@ on:
 env: # Change this if needed
   Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
   GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-        CRAN: ${{ matrix.config.cran }}
 
 jobs:
   build_computorticle:
@@ -45,8 +44,7 @@ jobs:
 
       - name: Setup pandoc for Rmarkdown
         uses: r-lib/actions/setup-pandoc@v1 
-        
-        
+  
       - name: Install dependencies if Linux
         if: runner.os == 'Linux'
         run: |
