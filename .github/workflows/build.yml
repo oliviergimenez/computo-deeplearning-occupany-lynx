@@ -1,61 +1,37 @@
-name: build
-
-on:
-  schedule:
-    # launch the build weekly to check that everything works find
-    - cron:  '0 0 * * 0' 
-  push:
-    branches:
-      - main
-      - master
-
-env: # Change this if needed
-  Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
-  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
-  build_computorticle:
-    name: Build Computo article with Rmarkdown
-    runs-on: "macos-latest"
-    defaults:
-      run:
-        shell: bash -l {0}
+  R-CMD:
+    runs-on: ${{ matrix.config.os }}
+
+    name: (fastai ${{ matrix.config.fastai }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - { os: macOS-latest, fastai: '2.0.0'}
+    env:
+      R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+      PIP_NO_WARN_SCRIPT_LOCATION: false
+      FASTAI_VERSION: ${{ matrix.config.fastai }}
+      RETICULATE_AUTOCONFIGURE: 'FALSE'
+      CRAN: ${{ matrix.config.cran }}
+
     steps:
-      - name: Checking out repository for Github action
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v1
 
-      - name: Cache conda
-        uses: actions/cache@v1
-        env:
-          # Increase this value to reset cache if environment.yml has not changed
-          CACHE_NUMBER: 0
-        with:
-          path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yml') }}
+      - uses: r-lib/actions/setup-r@master
 
-      - name: Setting up miniconda with specified Python and R dependencies
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
-          activate-environment: computorbuild
-          environment-file: environment.yml
-          channel-priority: strict
-          use-only-tar-bz2: true
+      - uses: r-lib/actions/setup-pandoc@master
 
-      - name: Setup pandoc for Rmarkdown
-        uses: r-lib/actions/setup-pandoc@v1 
-  
       - name: Install dependencies if Linux
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install libxml2-dev
-          
       - name: Install Linux
         run: |
-          Rscript -e "install.packages('remotes', repo="http://cran.rstudio.com/")"
+          Rscript -e "install.packages('remotes')"
           Rscript -e "remotes::install_deps(dependencies =  TRUE)"
           Rscript -e "remotes::install_cran('rcmdcheck')"
-          
       - name: Install Python
         run: |
           Rscript -e "install.packages('reticulate')"
@@ -65,21 +41,6 @@ jobs:
         run: |
           Rscript -e "remotes::install_local()"
           Rscript -e "fastai::install_fastai()"
-
-      - name: Install additional R dependencies
-        run: | 
-          export LANG=en_US.UTF-8
-          conda run -n computorbuild Rscript r-addons.R
-          
-      - name: Rendering Rmd file to HTML
-        run: |          
-          conda run -n computorbuild Rscript -e 'rmarkdown::render("${{ env.Rmarkdown-file }}", output_file = "index.html", output_dir = "_build")'
-
-      - name: Deploying article on github pages
-        uses: JamesIves/github-pages-deploy-action@3.7.1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: _build
-          CLEAN: true
-
+      - name: Check
+        continue-on-error: ${{ matrix.config.allow_failure }}
+        
