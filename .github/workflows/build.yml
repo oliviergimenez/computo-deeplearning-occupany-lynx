@@ -52,7 +52,7 @@ jobs:
           
       - name: Install Linux
         run: |
-          Rscript -e "install.packages('remotes')"
+          Rscript -e "install.packages('remotes', repo="http://cran.rstudio.com/")"
           Rscript -e "remotes::install_deps(dependencies =  TRUE)"
           Rscript -e "remotes::install_cran('rcmdcheck')"
           
