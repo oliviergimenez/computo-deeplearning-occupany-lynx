@@ -1,3 +1,18 @@
+name: build
+
+on:
+  schedule:
+    # launch the build weekly to check that everything works find
+    - cron:  '0 0 * * 0' 
+  push:
+    branches:
+      - main
+      - master
+
+env: # Change this if needed
+  Rmarkdown-file: dl-occupancy-lynx-paper.Rmd
+  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   R-CMD:
     runs-on: ${{ matrix.config.os }}
@@ -43,4 +58,16 @@ jobs:
           Rscript -e "fastai::install_fastai()"
       - name: Check
         continue-on-error: ${{ matrix.config.allow_failure }}
+        
+      - name: Rendering Rmd file to HTML
+        run: |          
+          conda run -n computorbuild Rscript -e 'rmarkdown::render("${{ env.Rmarkdown-file }}", output_file = "index.html", output_dir = "_build")'
+
+      - name: Deploying article on github pages
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: _build
+          CLEAN: true
         
