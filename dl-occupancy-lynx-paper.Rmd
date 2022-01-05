@@ -27,7 +27,7 @@ set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
 #library(fastai)
-library(kableExtra)
+#library(kableExtra)
 ```
 
 ```{r}
