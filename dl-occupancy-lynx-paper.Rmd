@@ -42,7 +42,7 @@ cont_names <- c('age', 'fnlwgt', 'education-num')
 ```
 
 
-```{r eval = FALSE}
+```{r eval = TRUE}
 procs <- list(FillMissing(),Categorify(),Normalize())
 
 dls <- TabularDataTable(df, procs, cat_names, cont_names,
