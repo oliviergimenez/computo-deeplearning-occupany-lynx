@@ -26,7 +26,7 @@ options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
-library(fastai)
+#library(fastai)
 library(kableExtra)
 ```
 
@@ -39,7 +39,10 @@ df <- read_csv('adult_sample/adult.csv')
 dep_var <- 'salary'
 cat_names <- c('workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race')
 cont_names <- c('age', 'fnlwgt', 'education-num')
+```
 
+
+```{r eval = FALSE}
 procs <- list(FillMissing(),Categorify(),Normalize())
 
 dls <- TabularDataTable(df, procs, cat_names, cont_names,
@@ -48,38 +51,22 @@ dls <- TabularDataTable(df, procs, cat_names, cont_names,
 
 model <- dls %>% tabular_learner(layers=c(200,100), metrics=accuracy)
 model %>% summary()
-```
 
-
-```{r}
 model %>% fit(5, lr = 10^-1)
 model %>% plot_loss(dpi = 200)
-```
 
-
-```{r}
 model %>% get_confusion_matrix()
 interp <- ClassificationInterpretation_from_learner(model)
 interp %>% plot_confusion_matrix(dpi = 90,figsize = c(6,6))
-```
 
-```{r}
 model %>% predict(df[10:15,])
-```
 
-```{r}
 exp <- ShapInterpretation(model,n_samples = 20)
-```
 
-```{r}
 exp %>% decision_plot(class_id = 1, row_idx = 2)
-```
 
-```{r}
 exp %>% dependence_plot('age', class_id = 0)
-```
 
-```{r}
 exp %>% summary_plot()
 ```
 
