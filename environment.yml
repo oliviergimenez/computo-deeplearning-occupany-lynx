@@ -15,7 +15,7 @@ dependencies:
   # - r-cowplot
   # - r-sf
   # - r-stringi
-  # - r-kableextra
+  - r-kableextra
   # - r-ggtext
   # - r-wesanderson
   # - r-highcharter
