@@ -1073,24 +1073,22 @@ bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
 ```
 
 
-<!-- ## Transfer learning -->
+## Transfer learning
 
-<!-- We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform). -->
-<!-- ```{r echo = TRUE} -->
-<!-- dls <- ImageDataLoaders_from_folder( -->
-<!--   path = "pix/", -->
-<!--   train = "train", -->
-<!--   valid = "valid", -->
-<!--   item_tfms = Resize(size = 460), -->
-<!--   bs = 10, -->
-<!--   batch_tfms = list(aug_transforms(size = 224, -->
-<!--                                    min_scale = 0.75), # transformation -->
-<!--                     Normalize_from_stats( imagenet_stats() )), -->
-<!--   num_workers = 0, -->
-<!--   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE) -->
-<!-- ``` -->
-
-
+We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
+```{r echo = TRUE}
+dls <- ImageDataLoaders_from_folder(
+  path = "pix/",
+  train = "train",
+  valid = "valid",
+  item_tfms = Resize(size = 460),
+  bs = 10,
+  batch_tfms = list(aug_transforms(size = 224,
+                                   min_scale = 0.75), # transformation
+                    Normalize_from_stats( imagenet_stats() )),
+  num_workers = 0,
+  ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
+```
 
 
 # Session information
