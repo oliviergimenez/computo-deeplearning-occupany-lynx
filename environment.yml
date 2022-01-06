@@ -11,15 +11,15 @@ dependencies:
   - r-tidyverse
   - r-plotly
   # - r-devtools
-  # - r-lubridate
-  # - r-cowplot
-  # - r-sf
-  # - r-stringi
+  - r-lubridate
+  - r-cowplot
+  - r-sf
+  - r-stringi
   - r-kableextra
-  # - r-ggtext
-  # - r-wesanderson
-  # - r-highcharter
-  # - r-janitor
+  - r-ggtext
+  - r-wesanderson
+  - r-highcharter
+  - r-janitor
 
   
   

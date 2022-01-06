@@ -30,6 +30,8 @@ library(fastai)
 library(kableExtra)
 ```
 
+blabla
+
 ```{r}
 # download
 #URLs_ADULT_SAMPLE()
