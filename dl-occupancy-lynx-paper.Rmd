@@ -26,7 +26,7 @@ options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
-library(sf)
+#library(sf)
 library(cowplot)
 library(lubridate)
 library(stringi)
@@ -374,7 +374,7 @@ Animal detections were made using a set of camera traps in the Jura mountains th
 
 We divided the two study areas into grids of 2.7 $\times$ 2.7 km cells or sites hereafter [@zimmermann_optimizing_2013] in which we set two camera traps per site (Xenon white flash with passive infrared trigger mechanisms, model Capture, Ambush and Attack; Cuddeback), with `r lapply(dat_jura, nrow)$lynx` sites in the Jura study area, and `r lapply(dat_ain, nrow)$lynx` in the Ain study area that were active over the study period (from February 2016 to October 2017 for the Jura county, and from February 2017 to May 2019 for the Ain county). The location of camera traps was chosen to maximise lynx detection. More precisely, camera traps were set up along large paths in the forest, on each side of the path at 50cm high. Camera traps were checked weekly to change memory cards, batteries and to remove fresh snow after heavy snowfall. 
 
-```{r studysite, fig.width = 10, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
+```{r studysite, eval = FALSE}
 site_jura <- st_read("shp/SIG_39/communes_site_etude_jura.shp", quiet = TRUE)
 area_jura <- st_read("shp/SIG_39/grille_jura_2.7x2.7.shp", quiet = TRUE)
 trap_jura <- st_read("shp/SIG_39/Pieges_photos_JURA_l93.shp", quiet = TRUE)
@@ -403,6 +403,11 @@ fig1b <- ggplot() +
 
 plot_row <- plot_grid(fig1a, fig1b)
 plot_row
+#ggsave(filename = "img/fig1.png", plot = plot_row)
+```
+
+```{r studysite2, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
+knitr::include_graphics("img/fig1.png")
 ```
 
 ```{r}
