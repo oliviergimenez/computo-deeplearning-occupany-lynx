@@ -4,6 +4,7 @@ channels:
 dependencies:
   - r-base=4.1.0
   - r-devtools
+  - r-terra=1.5.12
   - r-unmarked
   - r-raster
   - r-codetools
