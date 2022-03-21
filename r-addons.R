@@ -12,7 +12,9 @@ local({
 ## Additional R packages needed by the user (CRAN)
 install.packages("exifr")
 install.packages("cvms")
-remotes::install_github("rbchan/unmarked")
+#install.packages("devtools")
+install.packages("unmarked")
+#devtools::install_github("rbchan/unmarked")
 
 #install.packages("remotes")
 #remotes::install_deps(dependencies =  TRUE)

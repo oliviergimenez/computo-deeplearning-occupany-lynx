@@ -617,9 +617,9 @@ We formatted the data by generating monthly detection histories, that is a seque
 ```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
-my_packages <- c("unmarked")
-not_installed <- my_packages[!(my_packages %in% installed.packages()[,"Package"])]
-if(length(not_installed)) devtools::install_github("rbchan/unmarked")
+#my_packages <- c("unmarked")
+#not_installed <- my_packages[!(my_packages %in% installed.packages()[,"Package"])]
+#if(length(not_installed)) devtools::install_github("rbchan/unmarked")
 library(unmarked)
 # Format the data as required for package unmarked
 lynx <- as.matrix(rbind(dat_ain$lynx[,-1], dat_jura$lynx[,-1]))

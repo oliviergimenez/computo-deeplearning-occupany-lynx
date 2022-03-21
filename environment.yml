@@ -11,7 +11,6 @@ dependencies:
   - r-rmarkdown
   - r-tidyverse
   - r-plotly
-  # - r-devtools
   - r-lubridate
   - r-cowplot
   - r-sf
