@@ -13,7 +13,7 @@ local({
 install.packages("exifr")
 install.packages("cvms")
 #install.packages("devtools")
-#install.packages("unmarked")
+install.packages("unmarked")
 #devtools::install_github("rbchan/unmarked")
 
 #install.packages("remotes")
