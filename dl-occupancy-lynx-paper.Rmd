@@ -37,6 +37,7 @@ library(fastai)
 library(highcharter)
 library(janitor)
 
+
 # visualise occupancy data
 # hack of the unmarked package plot function
 plot_unmarked <- function(data) {
