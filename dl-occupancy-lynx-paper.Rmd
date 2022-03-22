@@ -1098,91 +1098,91 @@ bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
 ```
 
 
-## Transfer learning
+<!-- ## Transfer learning -->
 
-We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
-```{r echo = TRUE}
-dls <- ImageDataLoaders_from_folder(
-  path = "pix/",
-  train = "train",
-  valid = "valid",
-  item_tfms = Resize(size = 460),
-  bs = 10,
-  batch_tfms = list(aug_transforms(size = 224,
-                                   min_scale = 0.75), # transformation
-                    Normalize_from_stats( imagenet_stats() )),
-  num_workers = 0,
-  ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
-```
+<!-- We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform). -->
+<!-- ```{r echo = TRUE} -->
+<!-- dls <- ImageDataLoaders_from_folder( -->
+<!--   path = "pix/", -->
+<!--   train = "train", -->
+<!--   valid = "valid", -->
+<!--   item_tfms = Resize(size = 460), -->
+<!--   bs = 10, -->
+<!--   batch_tfms = list(aug_transforms(size = 224, -->
+<!--                                    min_scale = 0.75), # transformation -->
+<!--                     Normalize_from_stats( imagenet_stats() )), -->
+<!--   num_workers = 0, -->
+<!--   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE) -->
+<!-- ``` -->
 
-Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text.
-```{r echo = TRUE}
-learn <- cnn_learner(dls = dls,
-                     arch = resnet18(),
-                     metrics = list(accuracy, error_rate))
-```
+<!-- Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text. -->
+<!-- ```{r echo = TRUE} -->
+<!-- learn <- cnn_learner(dls = dls, -->
+<!--                      arch = resnet18(), -->
+<!--                      metrics = list(accuracy, error_rate)) -->
+<!-- ``` -->
 
-Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz processor and 64Go memory, and less than half an hour on a machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch on the same Mac. Note that we save the model after each epoch for later use.
-```{r, echo = TRUE, cache = FALSE}
-one_cycle <- learn %>%
-  fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE,
-                                           fname = 'model'))
-one_cycle
-```
+<!-- Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz processor and 64Go memory, and less than half an hour on a machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch on the same Mac. Note that we save the model after each epoch for later use. -->
+<!-- ```{r, echo = TRUE, cache = FALSE} -->
+<!-- one_cycle <- learn %>% -->
+<!--   fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE, -->
+<!--                                            fname = 'model')) -->
+<!-- one_cycle -->
+<!-- ``` -->
 
-We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.
-```{r echo = TRUE}
-learn$load("model_1")
-interp <- ClassificationInterpretation_from_learner(learn)
-interp$print_classification_report()
-```
+<!-- We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species. -->
+<!-- ```{r echo = TRUE} -->
+<!-- learn$load("model_1") -->
+<!-- interp <- ClassificationInterpretation_from_learner(learn) -->
+<!-- interp$print_classification_report() -->
+<!-- ``` -->
 
-We may extract the categories that get the most confused.
-```{r echo = TRUE}
-interp %>% most_confused()
-```
+<!-- We may extract the categories that get the most confused. -->
+<!-- ```{r echo = TRUE} -->
+<!-- interp %>% most_confused() -->
+<!-- ``` -->
 
-## Transferability
+<!-- ## Transferability -->
 
-In this section, we show how to use our freshly trained model to label images that were taken in another study site in the Ain county, and not used to train our model. First, we get the path to the images.
-```{r echo = TRUE}
-fls <- list.files(path = "pix/pixAin",
-                  full.names = TRUE,
-                  recursive = TRUE)
-```
+<!-- In this section, we show how to use our freshly trained model to label images that were taken in another study site in the Ain county, and not used to train our model. First, we get the path to the images. -->
+<!-- ```{r echo = TRUE} -->
+<!-- fls <- list.files(path = "pix/pixAin", -->
+<!--                   full.names = TRUE, -->
+<!--                   recursive = TRUE) -->
+<!-- ``` -->
 
-Then we carry out prediction, and compare to the truth.
-```{r echo = TRUE}
-predicted <- character(3)
-categories <- interp$vocab %>%
-  str_replace_all("[[:punct:]]", " ") %>%
-  str_trim() %>%
-  str_split("   ") %>%
-  unlist()
-for (i in 1:length(fls)){
-  result <- learn %>% predict(fls[i]) # make prediction
-  result[[3]] %>%
-    str_extract("\\d+") %>%
-    as.integer() -> index # extract relevant info
-  predicted[i] <- categories[index + 1] # match it with categories
-}
-data.frame(truth = c("lynx", "roe deer", "wild boar"),
-           prediction = predicted) %>%
-  kable(caption = "Comparison of the predictions vs. ground truth.") %>%
-  kable_styling()
-```
+<!-- Then we carry out prediction, and compare to the truth. -->
+<!-- ```{r echo = TRUE} -->
+<!-- predicted <- character(3) -->
+<!-- categories <- interp$vocab %>% -->
+<!--   str_replace_all("[[:punct:]]", " ") %>% -->
+<!--   str_trim() %>% -->
+<!--   str_split("   ") %>% -->
+<!--   unlist() -->
+<!-- for (i in 1:length(fls)){ -->
+<!--   result <- learn %>% predict(fls[i]) # make prediction -->
+<!--   result[[3]] %>% -->
+<!--     str_extract("\\d+") %>% -->
+<!--     as.integer() -> index # extract relevant info -->
+<!--   predicted[i] <- categories[index + 1] # match it with categories -->
+<!-- } -->
+<!-- data.frame(truth = c("lynx", "roe deer", "wild boar"), -->
+<!--            prediction = predicted) %>% -->
+<!--   kable(caption = "Comparison of the predictions vs. ground truth.") %>% -->
+<!--   kable_styling() -->
+<!-- ``` -->
 
 
 
-# Session information
+<!-- # Session information -->
 
-```{r session-info}
-sessionInfo()
-```
+<!-- ```{r session-info} -->
+<!-- sessionInfo() -->
+<!-- ``` -->
 
-# Acknowledgments
+<!-- # Acknowledgments -->
 
-We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way. We also thank the staff of the Federations of Hunters from the Jura and Ain counties, hunters who helped to find locations for camera traps and volunteers who contributed in collecting data. Our thanks also go to Hannah Clipp, Chris Rota and Ken Kellner for sharing a development version of unmarked, and an unpublished version of their paper. The Lynx Predator Prey Program was funded by Auvergne-Rhône-Alpes Region, Ain and Jura departmental Councils, The French National Federation of Hunters, French Environmental Ministry based in Auvergne-Rhone-Alpes and Bourgogne Franche-Comté Region and the French Office for Biodiversity. Our work was also partly funded by the French National Research Agency (grant ANR-16-CE02-0007). 
+<!-- We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way. We also thank the staff of the Federations of Hunters from the Jura and Ain counties, hunters who helped to find locations for camera traps and volunteers who contributed in collecting data. Our thanks also go to Hannah Clipp, Chris Rota and Ken Kellner for sharing a development version of unmarked, and an unpublished version of their paper. The Lynx Predator Prey Program was funded by Auvergne-Rhône-Alpes Region, Ain and Jura departmental Councils, The French National Federation of Hunters, French Environmental Ministry based in Auvergne-Rhone-Alpes and Bourgogne Franche-Comté Region and the French Office for Biodiversity. Our work was also partly funded by the French National Research Agency (grant ANR-16-CE02-0007).  -->
 
 # References
 
