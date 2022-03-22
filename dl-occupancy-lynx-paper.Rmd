@@ -411,7 +411,7 @@ plot_row
 knitr::include_graphics("img/fig1.png")
 ```
 
-```{r}
+```{r species}
 species_Jura <- allpic_Jura %>% 
   separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
   unite("n_point",value, value2, sep=".") %>% 
@@ -614,7 +614,7 @@ Here, we analysed the data we acquired from the previous section. For the sake o
 
 We formatted the data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 3).
 
-```{r eval = FALSE}
+```{r occupancy, eval = FALSE}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 my_packages <- c("unmarked")
@@ -689,7 +689,7 @@ Despite its appeal and increasing use in ecology, multispecies occupancy models 
 
 We now turn to the results obtained from a model with five species namely lynx, chamois, roe deer, fox and cat and co-occurrence allowed between lynx and chamois and roe deer only. 
 
-```{r include = FALSE, eval = FALSE}
+```{r lasso, include = FALSE, eval = FALSE}
 set.seed(2022)
 kk <- 10
 # y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
@@ -943,7 +943,6 @@ labels <- c(
 #newfiles <- gsub(".JPG$", ".jpg", files)
 #file.rename(files, newfiles)
 
-
 df %>%
   ggplot() + 
   geom_pointrange(aes(x = est, 
@@ -1018,7 +1017,7 @@ In this section, we go through a reproducible example of the entire deep learnin
 ## Training and validation datasets
 
 We first split the dataset of Jura images in two datasets, a dataset for training, and the other one for validation. We use the `exifr` package to extract metadata from images, get a list of images names and extract the species from these.
-```{r echo=TRUE}
+```{r exitfrchunk, echo=TRUE}
 library(exifr)
 pix_folder <- 'pix/pixJura/'
 file_list <- list.files(path = pix_folder,
@@ -1042,7 +1041,7 @@ labels <-
                                "ni" = "Non identifié")) %>%
   filter(!(Keywords %in% c("ni", "wo_tag")))
 ```
-```{r echo=FALSE}
+```{r tablespecies, echo=FALSE}
 labels %>%
   count(Keywords, sort = TRUE) %>%
   kable(caption = "Species considered, and number of images with these species in them.") %>%
@@ -1050,7 +1049,7 @@ labels %>%
 ```
 
 Then we pick 80$\%$ of the images for training in each category, the rest being used for validation.
-```{r echo = TRUE}
+```{r picking, echo = TRUE}
 # training dataset
 pix_train <- labels %>%
   select(SourceFile, FileName, Keywords) %>%
@@ -1063,7 +1062,7 @@ pix_valid <- labels %>%
 ```
 
 Eventually, we store these images in two distinct directories named `train` and `valid`.
-```{r echo=TRUE}
+```{r dircreate, echo=TRUE}
 # create dir train/ and copy pix there, organised by categories
 dir.create('pix/train') # create training directory
 for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels
@@ -1088,7 +1087,7 @@ if (!is_empty(to_be_deleted)) {
 ```
 
 What is the sample size of these two datasets?
-```{r echo=TRUE}
+```{r samplesize, echo=TRUE}
 bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
   group_by(dataset) %>%
   count(Keywords) %>%
@@ -1101,7 +1100,7 @@ bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
 ## Transfer learning
 
 We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
-```{r echo = TRUE}
+```{r dls, echo = TRUE}
 dls <- ImageDataLoaders_from_folder(
   path = "pix/",
   train = "train",
@@ -1116,14 +1115,14 @@ dls <- ImageDataLoaders_from_folder(
 ```
 
 Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text.
-```{r echo = TRUE}
+```{r learn, echo = TRUE}
 learn <- cnn_learner(dls = dls,
                      arch = resnet18(),
                      metrics = list(accuracy, error_rate))
 ```
 
 <!-- Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz processor and 64Go memory, and less than half an hour on a machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch on the same Mac. Note that we save the model after each epoch for later use. -->
-<!-- ```{r, echo = TRUE, cache = FALSE} -->
+<!-- ```{r onecycle, echo = TRUE, cache = FALSE} -->
 <!-- one_cycle <- learn %>% -->
 <!--   fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE, -->
 <!--                                            fname = 'model')) -->
@@ -1131,28 +1130,28 @@ learn <- cnn_learner(dls = dls,
 <!-- ``` -->
 
 <!-- We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species. -->
-<!-- ```{r echo = TRUE} -->
+<!-- ```{r loadmodel, echo = TRUE} -->
 <!-- learn$load("model_1") -->
 <!-- interp <- ClassificationInterpretation_from_learner(learn) -->
 <!-- interp$print_classification_report() -->
 <!-- ``` -->
 
 <!-- We may extract the categories that get the most confused. -->
-<!-- ```{r echo = TRUE} -->
+<!-- ```{r confusion, echo = TRUE} -->
 <!-- interp %>% most_confused() -->
 <!-- ``` -->
 
 <!-- ## Transferability -->
 
 <!-- In this section, we show how to use our freshly trained model to label images that were taken in another study site in the Ain county, and not used to train our model. First, we get the path to the images. -->
-<!-- ```{r echo = TRUE} -->
+<!-- ```{r listfiles, echo = TRUE} -->
 <!-- fls <- list.files(path = "pix/pixAin", -->
 <!--                   full.names = TRUE, -->
 <!--                   recursive = TRUE) -->
 <!-- ``` -->
 
 <!-- Then we carry out prediction, and compare to the truth. -->
-<!-- ```{r echo = TRUE} -->
+<!-- ```{r prediction, echo = TRUE} -->
 <!-- predicted <- character(3) -->
 <!-- categories <- interp$vocab %>% -->
 <!--   str_replace_all("[[:punct:]]", " ") %>% -->
