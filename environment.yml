@@ -6,7 +6,7 @@ dependencies:
   - r-raster
   - r-codetools
   - r-remotes
-  #- r-reticulate
+  - r-reticulate
   - r-rmarkdown
   - r-tidyverse
   - r-plotly
