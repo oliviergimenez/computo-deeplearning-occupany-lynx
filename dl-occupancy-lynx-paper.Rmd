@@ -1100,7 +1100,7 @@ bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
 ## Transfer learning
 
 We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
-```{r dls, echo = TRUE}
+```{r dls, echo = TRUE, eval = FALSE}
 dls <- ImageDataLoaders_from_folder(
   path = "pix/",
   train = "train",
@@ -1112,6 +1112,10 @@ dls <- ImageDataLoaders_from_folder(
                     Normalize_from_stats( imagenet_stats() )),
   num_workers = 0,
   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
+```
+
+```{r echo = FALSE}
+load("dat/dls.RData")
 ```
 
 Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text.
