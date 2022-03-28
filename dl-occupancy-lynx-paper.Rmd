@@ -1119,11 +1119,17 @@ load("dat/dls.RData")
 ```
 
 Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text.
-```{r learn, echo = TRUE}
+```{r learn, echo = TRUE, eval = FALSE}
 learn <- cnn_learner(dls = dls,
                      arch = resnet18(),
                      metrics = list(accuracy, error_rate))
+
 ```
+
+```{r echo = FALSE}
+load("dat/learn.RData")
+```
+
 
 <!-- Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz processor and 64Go memory, and less than half an hour on a machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch on the same Mac. Note that we save the model after each epoch for later use. -->
 <!-- ```{r onecycle, echo = TRUE, cache = FALSE} -->
