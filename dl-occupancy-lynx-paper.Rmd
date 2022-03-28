@@ -1062,7 +1062,7 @@ pix_valid <- labels %>%
 ```
 
 Eventually, we store these images in two distinct directories named `train` and `valid`.
-```{r dircreate, echo=TRUE}
+```{r dircreate, echo=TRUE, eval=FALSE}
 # create dir train/ and copy pix there, organised by categories
 dir.create('pix/train') # create training directory
 for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels
