@@ -19,10 +19,10 @@ remotes::install_github("rbchan/unmarked")
 #install.packages("reticulate")
 reticulate::install_miniconda()
 reticulate::conda_create('r-reticulate', python_version = '3.9')
-# #devtools::install_github('eagerai/fastai')
-install.packages("fastai")
+devtools::install_github('eagerai/fastai')
+#install.packages("fastai")
 # fastai::install_fastai()
-remotes::install_version("reticulate", version = "1.21", repos = "http://cran.us.r-project.org")
+#remotes::install_version("reticulate", version = "1.21", repos = "http://cran.us.r-project.org")
 fastai::install_fastai(gpu = FALSE, cuda_version = '10', overwrite = FALSE)
 
 
