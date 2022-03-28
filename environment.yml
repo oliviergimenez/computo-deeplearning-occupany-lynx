@@ -8,6 +8,7 @@ dependencies:
   - r-codetools
   - r-remotes
   - r-reticulate
+  - r-fastai
   - r-rmarkdown
   - r-tidyverse
   - r-plotly
