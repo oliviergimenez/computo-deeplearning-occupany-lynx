@@ -26,7 +26,7 @@ options(htmltools.dir.version = FALSE)
 set.seed(2022) # because 2019, 2020 and 2021 were not great
 library(tidyverse)
 theme_set(theme_light(base_size = 14))
-#library(sf)
+library(sf)
 library(cowplot)
 library(lubridate)
 library(stringi)
@@ -36,7 +36,6 @@ library(ggtext)
 library(fastai)
 library(highcharter)
 library(janitor)
-
 
 # visualise occupancy data
 # hack of the unmarked package plot function
@@ -375,7 +374,7 @@ Animal detections were made using a set of camera traps in the Jura mountains th
 
 We divided the two study areas into grids of 2.7 $\times$ 2.7 km cells or sites hereafter [@zimmermann_optimizing_2013] in which we set two camera traps per site (Xenon white flash with passive infrared trigger mechanisms, model Capture, Ambush and Attack; Cuddeback), with `r lapply(dat_jura, nrow)$lynx` sites in the Jura study area, and `r lapply(dat_ain, nrow)$lynx` in the Ain study area that were active over the study period (from February 2016 to October 2017 for the Jura county, and from February 2017 to May 2019 for the Ain county). The location of camera traps was chosen to maximise lynx detection. More precisely, camera traps were set up along large paths in the forest, on each side of the path at 50cm high. Camera traps were checked weekly to change memory cards, batteries and to remove fresh snow after heavy snowfall. 
 
-```{r studysite, eval = FALSE}
+```{r studysite, fig.width = 10, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
 site_jura <- st_read("shp/SIG_39/communes_site_etude_jura.shp", quiet = TRUE)
 area_jura <- st_read("shp/SIG_39/grille_jura_2.7x2.7.shp", quiet = TRUE)
 trap_jura <- st_read("shp/SIG_39/Pieges_photos_JURA_l93.shp", quiet = TRUE)
@@ -404,14 +403,9 @@ fig1b <- ggplot() +
 
 plot_row <- plot_grid(fig1a, fig1b)
 plot_row
-#ggsave(filename = "img/fig1.png", plot = plot_row, scale = 2)
 ```
 
-```{r studysite2, fig.cap = "**Figure 1**: Study area, grid and camera trap locations."}
-knitr::include_graphics("img/fig1.png")
-```
-
-```{r species}
+```{r}
 species_Jura <- allpic_Jura %>% 
   separate(FileName, c("value", "value2", "key"), extra = "merge") %>% 
   unite("n_point",value, value2, sep=".") %>% 
@@ -614,7 +608,7 @@ Here, we analysed the data we acquired from the previous section. For the sake o
 
 We formatted the data by generating monthly detection histories, that is a sequence of detections ($Y_{sit} = 1$) and non-detections ($Y_{sit} = 0$), for species $s$ at site $i$ and sampling occasion $t$ (see Figure 3).
 
-```{r occupancy, eval = FALSE}
+```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
 ## Occupancy analyses
 ## First with manually tagged data, then with automaticaly tagged data
 my_packages <- c("unmarked")
@@ -630,6 +624,7 @@ cat <- as.matrix(rbind(dat_ain$cat[,-1], dat_jura$cat[,-1]))
 y <- list("lynx" = lynx, "roe deer" = deer, "chamois" = chamois)
 data <- unmarkedFrameOccuMulti(y=y)
 # summary(data)
+
 x <- data
 y1 <- getY(x)
 ym <- max(y1, na.rm=TRUE)
@@ -656,29 +651,9 @@ y1 %>%
   scale_fill_manual(values = c( "gray90","black"),
                     labels = c("non-detection", "detection"))+
   labs(x = 'Sampling occasions', fill = "")
-save(y1, x, file = "dat/y1.RData")
+
 y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
 data <- unmarkedFrameOccuMulti(y=y)
-```
-
-```{r figure3, fig.cap="**Figure 3**: Detections (black) and non-detections (light grey) for each of the 3 species lynx, chamois and roe deer between March and November for all years pooled together. Sites are on the Y axis, while sampling occasions are on the X axis. Only data from the ground truth dataset are displayed.", fig.align="center"}
-load("dat/y1.RData")
-y1 %>%
-  pivot_longer(cols = 1:9,
-               names_to = "time",
-               values_to = "value") %>%
-  mutate(site = as_factor(site),
-         time = as_factor(time),
-         value = as_factor(value)) %>%
-  ggplot() +
-  aes(x = time, y = site, fill = value) + 
-  geom_tile() +
-  scale_y_discrete(name = 'Sites',
-                   labels = rownames(x@ylist$lynx)) + 
-  facet_wrap(vars(species), nrow = 1) +
-  scale_fill_manual(values = c( "gray90","black"),
-                    labels = c("non-detection", "detection"))+
-  labs(x = 'Sampling occasions', fill = "")
 ```
 
 To quantify spatial co-occurrence betwen lynx and its preys, we used a multispecies occupancy modeling approach [@Rota2016] implemented in the `R` package `unmarked` [@unmarkedFiske] within the maximum likelihood framework. The multispecies occupancy model assumes that observations $y_{sit}$, conditional on $Z_{si}$ the latent occupancy state of species $s$ at site $i$ are drawn from Bernoulli random variables $Y_{sit} | Z_{si} \sim \mbox{Bernoulli}(Z_{si}p_{sit})$ where $p_{sit}$ is the detection probability of species $s$ at site $i$ and sampling occasion $t$. Detection probabilities can be modeled as a function of site and/or sampling covariates, or the presence/absence of other species, but for the sake of illustration, we will make them only species-specific here. 
@@ -689,7 +664,7 @@ Despite its appeal and increasing use in ecology, multispecies occupancy models 
 
 We now turn to the results obtained from a model with five species namely lynx, chamois, roe deer, fox and cat and co-occurrence allowed between lynx and chamois and roe deer only. 
 
-```{r lasso, include = FALSE, eval = FALSE}
+```{r include = FALSE, eval = TRUE}
 set.seed(2022)
 kk <- 10
 # y <- list(lynx = lynx, deer = deer, chamois = chamois, fox = fox, cat = cat)
@@ -943,6 +918,7 @@ labels <- c(
 #newfiles <- gsub(".JPG$", ".jpg", files)
 #file.rename(files, newfiles)
 
+
 df %>%
   ggplot() + 
   geom_pointrange(aes(x = est, 
@@ -1017,7 +993,7 @@ In this section, we go through a reproducible example of the entire deep learnin
 ## Training and validation datasets
 
 We first split the dataset of Jura images in two datasets, a dataset for training, and the other one for validation. We use the `exifr` package to extract metadata from images, get a list of images names and extract the species from these.
-```{r exitfrchunk, echo=TRUE}
+```{r echo=TRUE}
 library(exifr)
 pix_folder <- 'pix/pixJura/'
 file_list <- list.files(path = pix_folder,
@@ -1041,7 +1017,7 @@ labels <-
                                "ni" = "Non identifié")) %>%
   filter(!(Keywords %in% c("ni", "wo_tag")))
 ```
-```{r tablespecies, echo=FALSE}
+```{r echo=FALSE}
 labels %>%
   count(Keywords, sort = TRUE) %>%
   kable(caption = "Species considered, and number of images with these species in them.") %>%
@@ -1049,7 +1025,7 @@ labels %>%
 ```
 
 Then we pick 80$\%$ of the images for training in each category, the rest being used for validation.
-```{r picking, echo = TRUE}
+```{r echo = TRUE}
 # training dataset
 pix_train <- labels %>%
   select(SourceFile, FileName, Keywords) %>%
@@ -1062,7 +1038,7 @@ pix_valid <- labels %>%
 ```
 
 Eventually, we store these images in two distinct directories named `train` and `valid`.
-```{r dircreate, echo=TRUE, eval=FALSE}
+```{r echo=TRUE}
 # create dir train/ and copy pix there, organised by categories
 dir.create('pix/train') # create training directory
 for (i in levels(fct_drop(pix_train$Keywords))) dir.create(paste0('pix/train/',i)) # create dir for labels
@@ -1087,7 +1063,7 @@ if (!is_empty(to_be_deleted)) {
 ```
 
 What is the sample size of these two datasets?
-```{r samplesize, echo=TRUE}
+```{r echo=TRUE}
 bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
   group_by(dataset) %>%
   count(Keywords) %>%
@@ -1100,7 +1076,7 @@ bind_rows("training" = pix_train, "validation" = pix_valid, .id = "dataset") %>%
 ## Transfer learning
 
 We proceed with transfer learning using images from the Jura county (or a subsample more exactly). We first load images and apply standard transformations to improve training (flip, rotate, zoom, rotate, ligth transform).
-```{r dls, echo = TRUE, eval = FALSE}
+```{r echo = TRUE}
 dls <- ImageDataLoaders_from_folder(
   path = "pix/",
   train = "train",
@@ -1114,25 +1090,15 @@ dls <- ImageDataLoaders_from_folder(
   ImageFile.LOAD_TRUNCATED_IMAGES = TRUE)
 ```
 
-```{r echo = FALSE}
-load("dat/dls.RData")
-```
-
 Then we get the model architecture. For the sake of illustration, we use a resnet18 here, but we used a resnet50 to get the full results presented in the main text.
-```{r learn, echo = TRUE, eval = FALSE}
+```{r echo = TRUE}
 learn <- cnn_learner(dls = dls,
                      arch = resnet18(),
                      metrics = list(accuracy, error_rate))
-
 ```
-
-```{r echo = FALSE}
-load("dat/learn.RData")
-```
-
 
 Now we are ready to train our model. Again, for the sake of illustration, we use only 2 epochs here, but used 20 epochs to get the full results presented in the main text. With all pictures and a resnet50, it took 75 minutes per epoch approximatively on a Mac with a 2.4Ghz processor and 64Go memory, and less than half an hour on a machine with GPU. On this reduced dataset, it took a bit more than a minute per epoch on the same Mac. Note that we save the model after each epoch for later use.
-```{r onecycle, echo = TRUE, cache = FALSE}
+```{r, echo = TRUE, cache = FALSE}
 one_cycle <- learn %>%
   fit_one_cycle(2, cbs = SaveModelCallback(every_epoch = TRUE,
                                            fname = 'model'))
@@ -1140,28 +1106,28 @@ one_cycle
 ```
 
 We may dig a bit deeper in training performances by loading the best model, here `model_1.pth`, and display some metrics for each species.
-```{r loadmodel, echo = TRUE}
+```{r echo = TRUE}
 learn$load("model_1")
 interp <- ClassificationInterpretation_from_learner(learn)
 interp$print_classification_report()
 ```
 
 We may extract the categories that get the most confused.
-```{r confusion, echo = TRUE}
+```{r echo = TRUE}
 interp %>% most_confused()
 ```
 
 ## Transferability
 
 In this section, we show how to use our freshly trained model to label images that were taken in another study site in the Ain county, and not used to train our model. First, we get the path to the images.
-```{r listfiles, echo = TRUE}
+```{r echo = TRUE}
 fls <- list.files(path = "pix/pixAin",
                   full.names = TRUE,
                   recursive = TRUE)
 ```
 
 Then we carry out prediction, and compare to the truth.
-```{r prediction, echo = TRUE}
+```{r echo = TRUE}
 predicted <- character(3)
 categories <- interp$vocab %>%
   str_replace_all("[[:punct:]]", " ") %>%
@@ -1191,7 +1157,7 @@ sessionInfo()
 
 # Acknowledgments
 
-We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way. We also thank the staff of the Federations of Hunters from the Jura and Ain counties, hunters who helped to find locations for camera traps and volunteers who contributed in collecting data. Our thanks also go to Hannah Clipp, Chris Rota and Ken Kellner for sharing a development version of unmarked, and an unpublished version of their paper. The Lynx Predator Prey Program was funded by Auvergne-Rhône-Alpes Region, Ain and Jura departmental Councils, The French National Federation of Hunters, French Environmental Ministry based in Auvergne-Rhone-Alpes and Bourgogne Franche-Comté Region and the French Office for Biodiversity. Our work was also partly funded by the French National Research Agency (grant ANR-16-CE02-0007).
+We warmly thank Mathieu Massaviol, Remy Dernat and Khalid Belkhir for their help in using GPU machines on the Montpellier Bioinformatics Biodiversity platform, Julien Renoult for helpful discussions, Delphine Dinouart and Chloé Quillard for their precious help in manually tagging the images, and Vincent Miele for having inspired this work, and his help and support along the way. We also thank the staff of the Federations of Hunters from the Jura and Ain counties, hunters who helped to find locations for camera traps and volunteers who contributed in collecting data. Our thanks also go to Hannah Clipp, Chris Rota and Ken Kellner for sharing a development version of unmarked, and an unpublished version of their paper. The Lynx Predator Prey Program was funded by Auvergne-Rhône-Alpes Region, Ain and Jura departmental Councils, The French National Federation of Hunters, French Environmental Ministry based in Auvergne-Rhone-Alpes and Bourgogne Franche-Comté Region and the French Office for Biodiversity. Our work was also partly funded by the French National Research Agency (grant ANR-16-CE02-0007). 
 
 # References
 
