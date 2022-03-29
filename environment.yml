@@ -2,17 +2,11 @@ name: computorbuild
 channels:
   - conda-forge
 dependencies:
+  - python=3.9
   - r-base=4.1.2
-  - r-raster
-  - r-codetools
-  - r-remotes
-  - r-reticulate
-  - r-rmarkdown
   - r-tidyverse
-  - r-plotly
-  # - r-devtools
-  - r-lubridate
   - r-cowplot
+  - r-lubridate
   - r-sf
   - r-stringi
   - r-kableextra
@@ -20,6 +14,10 @@ dependencies:
   - r-wesanderson
   - r-highcharter
   - r-janitor
+  - r-remotes
+  - r-rmarkdown
+  - gxx_linux-64
+
 
   
   
