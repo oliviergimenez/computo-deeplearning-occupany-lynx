@@ -16,7 +16,7 @@ env: # Change this if needed
 jobs:
   build_computorticle:
     name: Build Computo article with Rmarkdown
-    runs-on: "macos-latest"
+    runs-on: "ubuntu-latest"
     defaults:
       run:
         shell: bash -l {0}

@@ -16,4 +16,4 @@ dependencies:
   - r-janitor
   - r-remotes
   - r-rmarkdown
-#  - gxx_linux-64
+  - gxx_linux-64
